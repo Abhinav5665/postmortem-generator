@@ -4,26 +4,33 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 model Incident {
-  id            String      @id @default(cuid())
-  serviceName   String
-  startTime     DateTime
-  endTime       DateTime
-  rawLogs       String      @db.Text
-  engineerNotes String      @db.Text
-  severity      String
-  status        String      @default("OPEN")
-  createdAt     DateTime    @default(now())
-  postmortem    Postmortem?
+  id               String      @id @default(cuid())
+  serviceName      String
+  startTime        DateTime
+  endTime          DateTime
+  rawLogs          String      @db.Text
+  engineerNotes    String      @db.Text
+  severity         String
+  status           String      @default("OPEN")
+  
+  // Team members
+  onCallEngineer   String?
+  incidentCommander String?
+  participants     Json?       // array of names
+
+  createdAt        DateTime    @default(now())
+  postmortem       Postmortem?
 }
 
 model Postmortem {
   id            String    @id @default(cuid())
   incidentId    String    @unique
   incident      Incident  @relation(fields: [incidentId], references: [id])
+  
+  // AI generated fields
   summary       String    @db.Text
   timeline      Json
   rootCause     String    @db.Text
@@ -31,7 +38,14 @@ model Postmortem {
   impactMetrics Json
   resolution    String    @db.Text
   wentWell      String    @db.Text
-  actionItems   Json
   severity      String
+
+  // Action items with owner + due date
+  actionItems   Json
+
+  // Edit support
+  isEdited      Boolean   @default(false)
+  editedAt      DateTime?
+
   generatedAt   DateTime  @default(now())
 }
