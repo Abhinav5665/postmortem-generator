@@ -1,13 +1,37 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  
+}
+
+model Incident {
+  id            String      @id @default(cuid())
+  serviceName   String
+  startTime     DateTime
+  endTime       DateTime
+  rawLogs       String      @db.Text
+  engineerNotes String      @db.Text
+  severity      String
+  status        String      @default("OPEN")
+  createdAt     DateTime    @default(now())
+  postmortem    Postmortem?
+}
+
+model Postmortem {
+  id            String    @id @default(cuid())
+  incidentId    String    @unique
+  incident      Incident  @relation(fields: [incidentId], references: [id])
+  summary       String    @db.Text
+  timeline      Json
+  rootCause     String    @db.Text
+  impact        String    @db.Text
+  impactMetrics Json
+  resolution    String    @db.Text
+  wentWell      String    @db.Text
+  actionItems   Json
+  severity      String
+  generatedAt   DateTime  @default(now())
 }
