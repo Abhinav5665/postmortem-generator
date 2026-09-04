@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment variables - NEVER commit this
+.env
+.env.local
+.env.production
+
+# Build output
+dist/
+
+# IDE and editor folders
+.claude/
+.windsurf/
+.agents/
+
+# Prisma
+prisma7.config.ts
+
+# Misc
+skills-lock.json
+*.log
