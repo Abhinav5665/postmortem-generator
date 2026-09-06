@@ -1,11 +1,10 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import { z } from 'zod'
 import { ParsedLogsResult } from './logParser'
 import { TimelineEvent } from './timelineBuilder'
 import { SeverityResult } from './severityScorer'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' })
+
 
 const ActionItemSchema = z.object({
   task: z.string(),
@@ -62,6 +61,11 @@ export async function generatePostmortem(
   incidentCommander?: string,
   participants?: string[]
 ): Promise<PostmortemResult> {
+
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
+
+console.log('Gemini key loaded:', !!process.env.GEMINI_API_KEY)
+console.log('Gemini model:', process.env.GEMINI_MODEL)
 
   const timelineText = timeline
     .map(event => {
@@ -146,9 +150,14 @@ Use this exact structure:
 `
 
   // Gemini call — JSON.parse and Zod errors bubble up to the route handler
-  const result = await model.generateContent(prompt)
-  const text = result.response.text()
+  const result = await ai.models.generateContent({
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    contents: prompt,
+  })
 
+  const text = result.text || ''
+
+  // Clean response — strip markdown backticks if Gemini adds them
   const cleaned = text
     .replace(/```json/gi, '')
     .replace(/```/g, '')
