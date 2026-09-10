@@ -1,0 +1,292 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { incidentsApi } from '../lib/api'
+
+export default function NewIncident() {
+  const navigate = useNavigate()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [logInputType, setLogInputType] = useState<'paste' | 'file'>('paste')
+  const [logFile, setLogFile] = useState<File | null>(null)
+
+  const [form, setForm] = useState({
+    serviceName: '',
+    startTime: '',
+    endTime: '',
+    engineerNotes: '',
+    rawLogs: '',
+    onCallEngineer: '',
+    incidentCommander: '',
+    participants: '',
+  })
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  async function handleSubmit() {
+    setError(null)
+
+    // Basic validation
+    if (!form.serviceName || !form.startTime || !form.endTime || !form.engineerNotes) {
+      setError('Service name, start time, end time and engineer notes are required')
+      return
+    }
+
+    if (logInputType === 'paste' && !form.rawLogs) {
+      setError('Please paste your logs or upload a log file')
+      return
+    }
+
+    if (logInputType === 'file' && !logFile) {
+      setError('Please upload a log file')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('serviceName', form.serviceName)
+      formData.append('startTime', new Date(form.startTime).toISOString())
+      formData.append('endTime', new Date(form.endTime).toISOString())
+      formData.append('engineerNotes', form.engineerNotes)
+
+      if (form.onCallEngineer) formData.append('onCallEngineer', form.onCallEngineer)
+      if (form.incidentCommander) formData.append('incidentCommander', form.incidentCommander)
+      if (form.participants) formData.append('participants', form.participants)
+
+      if (logInputType === 'paste') {
+        formData.append('rawLogs', form.rawLogs)
+      } else if (logFile) {
+        formData.append('logFile', logFile)
+      }
+
+      console.log('startTime:', new Date(form.startTime).toISOString())
+console.log('endTime:', new Date(form.endTime).toISOString())
+
+      const response = await incidentsApi.create(formData)
+      const incidentId = response.data.data.id
+      navigate(`/incidents/${incidentId}`)
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to generate postmortem. Please try again.'
+      setError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-8 max-w-4xl w-full">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Create New Incident</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Provide the details and we'll generate a complete postmortem for you
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        {/* Service Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Service Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="serviceName"
+            value={form.serviceName}
+            onChange={handleChange}
+            placeholder="e.g. Payment Service"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Times */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Incident Start Time <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              name="startTime"
+              value={form.startTime}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Incident End Time <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              name="endTime"
+              value={form.endTime}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Raw Logs */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Raw Logs <span className="text-red-500">*</span>
+          </label>
+
+          {/* Toggle */}
+          <div className="flex gap-1 mb-2 border border-gray-200 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => setLogInputType('paste')}
+              className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                logInputType === 'paste'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Paste Logs
+            </button>
+            <button
+              onClick={() => setLogInputType('file')}
+              className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                logInputType === 'file'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Upload File
+            </button>
+          </div>
+
+          {logInputType === 'paste' ? (
+            <textarea
+              name="rawLogs"
+              value={form.rawLogs}
+              onChange={handleChange}
+              rows={8}
+              placeholder="Paste your raw log output here..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-950 text-green-400 placeholder-gray-600"
+            />
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                accept=".log,.txt"
+                onChange={e => setLogFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="logFile"
+              />
+              <label htmlFor="logFile" className="cursor-pointer">
+                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {logFile ? (
+                  <p className="text-sm text-indigo-600 font-medium">{logFile.name}</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600">Click to upload a log file</p>
+                    <p className="text-xs text-gray-400 mt-1">.log or .txt files only, max 5MB</p>
+                  </>
+                )}
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Engineer Notes */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Engineer Notes <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            name="engineerNotes"
+            value={form.engineerNotes}
+            onChange={handleChange}
+            rows={4}
+            placeholder="What did you observe? What were the symptoms? Any relevant context..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Team Members */}
+        <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-700">Team Members</h2>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">On-call Engineer</label>
+              <input
+                type="text"
+                name="onCallEngineer"
+                value={form.onCallEngineer}
+                onChange={handleChange}
+                placeholder="e.g. Abhinav"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Incident Commander</label>
+              <input
+                type="text"
+                name="incidentCommander"
+                value={form.incidentCommander}
+                onChange={handleChange}
+                placeholder="e.g. Sarah"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Other Participants
+            </label>
+            <input
+              type="text"
+              name="participants"
+              value={form.participants}
+              onChange={handleChange}
+              placeholder="John, Mike, Sarah (comma separated)"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          onClick={handleSubmit}
+          disabled={isLoading}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-3 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Generating Postmortem...
+            </>
+          ) : (
+            'Generate Postmortem'
+          )}
+        </button>
+
+        {isLoading && (
+          <p className="text-center text-xs text-gray-400">
+            This usually takes 10–15 seconds
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}

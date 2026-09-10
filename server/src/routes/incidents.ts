@@ -13,6 +13,7 @@ const router = Router()
 
 // GET /api/incidents — fetch all incidents
 router.get('/', async (req: Request, res: Response): Promise<void> => {
+   console.log('GET /api/incidents hit')
   try {
     const incidents = await prisma.incident.findMany({
       orderBy: { createdAt: 'desc' },
