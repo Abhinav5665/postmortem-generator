@@ -108,18 +108,28 @@ export default function Postmortem() {
 
   return (
     <div className="p-8 max-w-4xl">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-8">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Dashboard
-        </button>
-      </div>
+ {/* Top bar */}
+<div className="flex items-center justify-between mb-8">
+  <button
+    onClick={() => navigate('/dashboard')}
+    className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+  >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+    Back to Dashboard
+  </button>
+
+  <button
+    onClick={() => window.print()}
+    className="no-print flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+  >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    Export PDF
+  </button>
+</div>
 
       {/* Title */}
       <div className="mb-6">
@@ -139,7 +149,7 @@ export default function Postmortem() {
             onClick={() => statusMutation.mutate(
               incident.status === 'OPEN' ? 'RESOLVED' : 'OPEN'
             )}
-            className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
+            className={`no-print px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
               incident.status === 'RESOLVED'
                 ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
                 : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
@@ -209,7 +219,7 @@ export default function Postmortem() {
             {editingField !== key && (
               <button
                 onClick={() => startEdit(key, postmortem[key as keyof typeof postmortem] as string)}
-                className="text-xs text-indigo-600 hover:text-indigo-800"
+                className="no-print text-xs text-indigo-600 hover:text-indigo-800"
               >
                 Edit
               </button>
@@ -226,13 +236,13 @@ export default function Postmortem() {
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => saveEdit(key)}
-                  className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
+                  className="no-print text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
                 >
                   Save
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="text-xs text-gray-500 px-3 py-1.5 rounded-md hover:bg-gray-100"
+                  className="no-print text-xs text-gray-500 px-3 py-1.5 rounded-md hover:bg-gray-100"
                 >
                   Cancel
                 </button>

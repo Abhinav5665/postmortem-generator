@@ -78,7 +78,7 @@ console.log('endTime:', new Date(form.endTime).toISOString())
   }
 
   return (
-    <div className="p-8 max-w-4xl w-full">
+    <div className="p-8 w-full">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Create New Incident</h1>
@@ -103,34 +103,63 @@ console.log('endTime:', new Date(form.endTime).toISOString())
           />
         </div>
 
-        {/* Times */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Incident Start Time <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="datetime-local"
-              name="startTime"
-              value={form.startTime}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Incident End Time <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="datetime-local"
-              name="endTime"
-              value={form.endTime}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
+       {/* Times */}
+<div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Incident Start Time <span className="text-red-500">*</span>
+    </label>
+    <div className="grid grid-cols-2 gap-2">
+      <input
+        type="date"
+        name="startDate"
+        value={form.startTime.split('T')[0] || ''}
+        onChange={e => setForm(prev => ({
+          ...prev,
+          startTime: `${e.target.value}T${prev.startTime.split('T')[1] || '00:00'}`
+        }))}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      <input
+        type="time"
+        name="startTimeOnly"
+        value={form.startTime.split('T')[1] || ''}
+        onChange={e => setForm(prev => ({
+          ...prev,
+          startTime: `${prev.startTime.split('T')[0] || ''}T${e.target.value}`
+        }))}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+    </div>
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Incident End Time <span className="text-red-500">*</span>
+    </label>
+    <div className="grid grid-cols-2 gap-2">
+      <input
+        type="date"
+        name="endDate"
+        value={form.endTime.split('T')[0] || ''}
+        onChange={e => setForm(prev => ({
+          ...prev,
+          endTime: `${e.target.value}T${prev.endTime.split('T')[1] || '00:00'}`
+        }))}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      <input
+        type="time"
+        name="endTimeOnly"
+        value={form.endTime.split('T')[1] || ''}
+        onChange={e => setForm(prev => ({
+          ...prev,
+          endTime: `${prev.endTime.split('T')[0] || ''}T${e.target.value}`
+        }))}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+    </div>
+  </div>
+</div>
         {/* Raw Logs */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

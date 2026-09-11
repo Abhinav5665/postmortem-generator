@@ -5,6 +5,37 @@
 
 @custom-variant dark (&:is(.dark *));
 
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
+
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  aside { display: none !important; }
+  .no-print { display: none !important; }
+  body { background: white; }
+  main { overflow: visible; }
+
+  .bg-white {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .space-y-3 > div {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
