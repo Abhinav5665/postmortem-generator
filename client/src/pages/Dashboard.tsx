@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { incidentsApi } from '../lib/api'
 import type { Incident } from '../lib/api'
 import { formatDistanceToNow, format, differenceInMinutes } from 'date-fns'
+import { useState } from 'react'
 
 function SeverityBadge({ severity }: { severity: 'P0' | 'P1' | 'P2' }) {
   const styles = {
@@ -46,6 +47,19 @@ export default function Dashboard() {
     queryFn: () => incidentsApi.getAll().then(res => res.data.data),
   })
 
+    const [search, setSearch] = useState('')
+  const [severityFilter, setSeverityFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+
+const filteredData = data?.filter(incident => {
+  const matchesSearch = incident.serviceName
+    .toLowerCase()
+    .includes(search.toLowerCase())
+  const matchesSeverity = severityFilter === 'ALL' || incident.severity === severityFilter
+  const matchesStatus = statusFilter === 'ALL' || incident.status === statusFilter
+  return matchesSearch && matchesSeverity && matchesStatus
+})
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -64,6 +78,35 @@ export default function Dashboard() {
           New Incident
         </button>
       </div>
+      {/* Filter Bar */}
+<div className="flex gap-3 mb-6">
+  <input
+    type="text"
+    value={search}
+    onChange={e => setSearch(e.target.value)}
+    placeholder="Search by service name..."
+    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+  />
+  <select
+    value={severityFilter}
+    onChange={e => setSeverityFilter(e.target.value)}
+    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+  >
+    <option value="ALL">All Severities</option>
+    <option value="P0">P0</option>
+    <option value="P1">P1</option>
+    <option value="P2">P2</option>
+  </select>
+  <select
+    value={statusFilter}
+    onChange={e => setStatusFilter(e.target.value)}
+    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+  >
+    <option value="ALL">All Status</option>
+    <option value="OPEN">Open</option>
+    <option value="RESOLVED">Resolved</option>
+  </select>
+</div>
 
       {/* Loading */}
       {isLoading && (
@@ -80,7 +123,7 @@ export default function Dashboard() {
       )}
 
       {/* Empty state */}
-      {!isLoading && !isError && data?.length === 0 && (
+      {!isLoading && !isError && filteredData?.length === 0 && (
         <div className="text-center py-20">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,7 +141,7 @@ export default function Dashboard() {
       )}
 
       {/* Table */}
-      {!isLoading && !isError && data && data.length > 0 && (
+      {!isLoading && !isError && filteredData && filteredData.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
@@ -112,7 +155,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((incident: Incident) => (
+              {filteredData?.map((incident: Incident) => (
                 <tr
                   key={incident.id}
                   className="hover:bg-gray-50 transition-colors cursor-pointer"

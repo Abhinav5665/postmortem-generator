@@ -24,7 +24,7 @@
   main { overflow: visible; }
 
   .bg-white {
-    break-inside: avoid;
+    break-inside: auto;
   }
 
   .space-y-3 > div {

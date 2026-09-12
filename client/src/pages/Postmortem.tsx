@@ -109,7 +109,7 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
   const actionItems = postmortem.actionItems as ActionItem[]
 
   return (
-    <div className="p-8 max-w-4xl">
+   <div className="p-8 max-w-7xl mx-auto w-full">
  {/* Top bar */}
 <div className="flex items-center justify-between mb-8">
   <button
