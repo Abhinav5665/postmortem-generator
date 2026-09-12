@@ -275,11 +275,11 @@ export default function Postmortem() {
                 )}
               </div>
               <div className="pb-3">
-                <p className="text-xs text-gray-400 mb-0.5">
-                  {event.time
-                    ? format(new Date(event.time), 'h:mm a')
-                    : 'Unknown'}
-                </p>
+               <p className="text-xs text-gray-400 mb-0.5">
+  {event.time
+    ? new Date(event.time).toISOString().substring(11, 16) + ' UTC'
+    : 'Unknown'}
+</p>
                 <p className="text-sm text-gray-700">{event.event}</p>
               </div>
             </div>

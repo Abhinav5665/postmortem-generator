@@ -25,14 +25,19 @@
   body { background: white; }
   main { overflow: visible; }
 
+  /* Only avoid breaks on individual cards, not the whole section */
   .bg-white {
-    page-break-inside: avoid;
     break-inside: avoid;
   }
 
+  /* Allow timeline to break across pages but keep each item together */
   .space-y-3 > div {
-    page-break-inside: avoid;
     break-inside: avoid;
+  }
+
+  /* Remove avoid from large sections so they can flow across pages */
+  .max-w-4xl > .bg-white:last-child {
+    break-inside: auto;
   }
 }
 
