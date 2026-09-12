@@ -17,9 +17,7 @@ model Incident {
   status           String      @default("OPEN")
   
   // Team members
-  onCallEngineer   String?
-  incidentCommander String?
-  participants     Json?       // array of names
+  teamMembers       Json?
 
   createdAt        DateTime    @default(now())
   postmortem       Postmortem?

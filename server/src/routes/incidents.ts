@@ -72,9 +72,7 @@ router.post(
         endTime,
         engineerNotes,
         rawLogs,
-        onCallEngineer,
-        incidentCommander,
-        participants,
+        teamMembers,
       } = req.body
 
       // If file uploaded, use file contents — otherwise use pasted logs
@@ -97,9 +95,9 @@ router.post(
       }
 
       // Parse participants from comma separated string
-      const participantsList = participants
-        ? participants.split(',').map((p: string) => p.trim()).filter(Boolean)
-        : []
+    const teamMembersList = teamMembers
+  ? JSON.parse(teamMembers)
+  : []
 
       // Run all services
       const durationMinutes = severityScorer.getDurationMinutes(start, end)
@@ -117,9 +115,7 @@ router.post(
         timeline,
         engineerNotes,
         severityResult,
-        onCallEngineer,
-        incidentCommander,
-        participantsList
+        teamMembersList
       )
 
       // Save incident and postmortem to DB in one transaction
@@ -132,9 +128,7 @@ router.post(
           engineerNotes,
           severity: severityResult.level,
           status: 'OPEN',
-          onCallEngineer: onCallEngineer || null,
-          incidentCommander: incidentCommander || null,
-          participants: participantsList,
+         teamMembers: JSON.parse(JSON.stringify(teamMembersList)),
           postmortem: {
             create: {
               summary: postmortemResult.summary,

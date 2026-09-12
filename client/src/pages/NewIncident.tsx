@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { incidentsApi } from '../lib/api'
+import type { TeamMember } from '../lib/api'
 
 export default function NewIncident() {
   const navigate = useNavigate()
@@ -19,6 +20,22 @@ export default function NewIncident() {
     incidentCommander: '',
     participants: '',
   })
+
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
+  { name: '', role: '' }
+])
+
+function addTeamMember() {
+  setTeamMembers(prev => [...prev, { name: '', role: '' }])
+}
+
+function removeTeamMember(index: number) {
+  setTeamMembers(prev => prev.filter((_, i) => i !== index))
+}
+
+function updateTeamMember(index: number, field: 'name' | 'role', value: string) {
+  setTeamMembers(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m))
+}
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -48,13 +65,14 @@ export default function NewIncident() {
     try {
       const formData = new FormData()
       formData.append('serviceName', form.serviceName)
-      formData.append('startTime', new Date(form.startTime).toISOString())
-      formData.append('endTime', new Date(form.endTime).toISOString())
+      formData.append('startTime', new Date(form.startTime + ':00Z').toISOString())
+formData.append('endTime', new Date(form.endTime + ':00Z').toISOString())
       formData.append('engineerNotes', form.engineerNotes)
 
-      if (form.onCallEngineer) formData.append('onCallEngineer', form.onCallEngineer)
-      if (form.incidentCommander) formData.append('incidentCommander', form.incidentCommander)
-      if (form.participants) formData.append('participants', form.participants)
+      const validTeamMembers = teamMembers.filter(m => m.name && m.role)
+if (validTeamMembers.length > 0) {
+  formData.append('teamMembers', JSON.stringify(validTeamMembers))
+}
 
       if (logInputType === 'paste') {
         formData.append('rawLogs', form.rawLogs)
@@ -62,8 +80,8 @@ export default function NewIncident() {
         formData.append('logFile', logFile)
       }
 
-      console.log('startTime:', new Date(form.startTime).toISOString())
-console.log('endTime:', new Date(form.endTime).toISOString())
+      console.log('startTime:', new Date(form.startTime + ':00Z').toISOString())
+console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
 
       const response = await incidentsApi.create(formData)
       const incidentId = response.data.data.id
@@ -240,49 +258,60 @@ console.log('endTime:', new Date(form.endTime).toISOString())
           />
         </div>
 
-        {/* Team Members */}
-        <div className="border border-gray-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-700">Team Members</h2>
+       {/* Team Members */}
+<div className="border border-gray-200 rounded-xl p-5 space-y-4">
+  <h2 className="text-sm font-semibold text-gray-700">Team Members</h2>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">On-call Engineer</label>
-              <input
-                type="text"
-                name="onCallEngineer"
-                value={form.onCallEngineer}
-                onChange={handleChange}
-                placeholder="e.g. Abhinav"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Incident Commander</label>
-              <input
-                type="text"
-                name="incidentCommander"
-                value={form.incidentCommander}
-                onChange={handleChange}
-                placeholder="e.g. Sarah"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+  <div className="space-y-3">
+    {teamMembers.map((member, index) => (
+      <div key={index} className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={member.name}
+          onChange={e => updateTeamMember(index, 'name', e.target.value)}
+          placeholder="Name"
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <select
+          value={member.role}
+          onChange={e => updateTeamMember(index, 'role', e.target.value)}
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">Select role</option>
+          <option value="On-call Engineer">On-call Engineer</option>
+          <option value="Incident Commander">Incident Commander</option>
+          <option value="Backend Engineer">Backend Engineer</option>
+          <option value="Frontend Engineer">Frontend Engineer</option>
+          <option value="DevOps Engineer">DevOps Engineer</option>
+          <option value="Database Engineer">Database Engineer</option>
+          <option value="Product Manager">Product Manager</option>
+          <option value="QA Engineer">QA Engineer</option>
+          <option value="Other">Other</option>
+        </select>
+        {teamMembers.length > 1 && (
+          <button
+            onClick={() => removeTeamMember(index)}
+            className="text-gray-400 hover:text-red-500 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+    ))}
+  </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Other Participants
-            </label>
-            <input
-              type="text"
-              name="participants"
-              value={form.participants}
-              onChange={handleChange}
-              placeholder="John, Mike, Sarah (comma separated)"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-        </div>
+  <button
+    onClick={addTeamMember}
+    className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+  >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+    Add another person
+  </button>
+</div>
 
         {/* Error */}
         {error && (

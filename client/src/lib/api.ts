@@ -16,9 +16,7 @@ export interface Incident {
   severity: 'P0' | 'P1' | 'P2'
   status: 'OPEN' | 'RESOLVED'
   createdAt: string
-  onCallEngineer?: string
-  incidentCommander?: string
-  participants?: string[]
+  teamMembers?: TeamMember[]
   rawLogs?: string
   engineerNotes?: string
   postmortem?: Postmortem
@@ -58,15 +56,18 @@ export interface Postmortem {
   generatedAt: string
 }
 
+export interface TeamMember {
+  name: string
+  role: string
+}
+
 export interface CreateIncidentPayload {
   serviceName: string
   startTime: string
   endTime: string
   engineerNotes: string
   rawLogs?: string
-  onCallEngineer?: string
-  incidentCommander?: string
-  participants?: string
+  teamMembers?: TeamMember[]
 }
 
 // API calls

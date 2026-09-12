@@ -7,9 +7,7 @@ export const IncidentSchema = z.object({
   endTime: z.iso.datetime({ error: 'End time must be a valid ISO date' }),
   engineerNotes: z.string().min(1, 'Engineer notes are required'),
   rawLogs: z.string().optional(),
-  onCallEngineer: z.string().optional(),
-  incidentCommander: z.string().optional(),
-  participants: z.string().optional(),
+  teamMembers: z.string().optional(), 
 })
 
 export const UpdatePostmortemSchema = z.object({

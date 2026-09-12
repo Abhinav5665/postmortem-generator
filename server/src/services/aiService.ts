@@ -57,9 +57,7 @@ export async function generatePostmortem(
   timeline: TimelineEvent[],
   engineerNotes: string,
   severityResult: SeverityResult,
-  onCallEngineer?: string,
-  incidentCommander?: string,
-  participants?: string[]
+ teamMembers?: { name: string; role: string }[]
 ): Promise<PostmortemResult> {
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
@@ -70,7 +68,7 @@ console.log('Gemini model:', process.env.GEMINI_MODEL)
   const timelineText = timeline
     .map(event => {
       const time = event.time
-        ? event.time.toISOString().replace('T', ' ').substring(0, 19)
+        ? event.time.toString().replace('T', ' ').substring(0, 19)
         : 'Unknown time'
       return `${time} - [${event.type}] ${event.event}`
     })
@@ -78,11 +76,9 @@ console.log('Gemini model:', process.env.GEMINI_MODEL)
 
   const logsText = selectImportantLogs(parsedLogs)
 
-  const teamInfo = `
-On-call Engineer: ${onCallEngineer || 'Not specified'}
-Incident Commander: ${incidentCommander || 'Not specified'}
-Participants: ${participants?.join(', ') || 'Not specified'}
-  `.trim()
+  const teamInfo = teamMembers && teamMembers.length > 0
+  ? teamMembers.map(m => `- ${m.name} (${m.role})`).join('\n')
+  : 'Not specified'
 
   const prompt = `
 You are a senior site reliability engineer writing a professional postmortem document.

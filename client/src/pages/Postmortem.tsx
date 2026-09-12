@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, differenceInMinutes } from 'date-fns'
 import { incidentsApi, postmortemsApi } from '../lib/api'
-import type { ActionItem } from '../lib/api'
+import type { ActionItem, TeamMember } from '../lib/api'
 
 function SeverityBadge({ severity }: { severity: 'P0' | 'P1' | 'P2' }) {
   const styles = {
@@ -177,33 +177,21 @@ export default function Postmortem() {
       </div>
 
       {/* Team */}
-      {(incident.onCallEngineer || incident.incidentCommander || (incident.participants as string[])?.length > 0) && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Team</h2>
-          <div className="flex flex-wrap gap-6 text-sm">
-            {incident.onCallEngineer && (
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">On-call Engineer</p>
-                <p className="font-medium text-gray-900">{incident.onCallEngineer}</p>
-              </div>
-            )}
-            {incident.incidentCommander && (
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">Incident Commander</p>
-                <p className="font-medium text-gray-900">{incident.incidentCommander}</p>
-              </div>
-            )}
-            {(incident.participants as string[])?.length > 0 && (
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">Participants</p>
-                <p className="font-medium text-gray-900">
-                  {(incident.participants as string[]).join(', ')}
-                </p>
-              </div>
-            )}
-          </div>
+     {(incident.teamMembers as TeamMember[])?.length > 0 && (
+  <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+    <h2 className="text-sm font-semibold text-gray-700 mb-3">Team</h2>
+    <div className="divide-y divide-gray-100">
+      {(incident.teamMembers as TeamMember[]).map((member, index) => (
+        <div key={index} className="flex items-center justify-between py-2">
+          <span className="text-sm font-medium text-gray-900">{member.name}</span>
+          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+            {member.role}
+          </span>
         </div>
-      )}
+      ))}
+    </div>
+  </div>
+)}
 
       {/* Editable sections */}
       {[
