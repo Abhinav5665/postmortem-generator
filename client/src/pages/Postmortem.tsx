@@ -145,7 +145,9 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
           )}
         </div>
         <div className="flex items-center gap-4 text-sm text-gray-500">
-          <span>{format(new Date(incident.startTime), 'MMM d, yyyy · h:mm a')} — {format(new Date(incident.endTime), 'h:mm a')}</span>
+          <span>
+  {new Date(incident.startTime).toISOString().substring(0, 10)} · {new Date(incident.startTime).toISOString().substring(11, 16)} — {new Date(incident.endTime).toISOString().substring(11, 16)} UTC
+</span>
           <span>Duration: {getDuration(incident.startTime, incident.endTime)}</span>
           <button
             onClick={() => statusMutation.mutate(

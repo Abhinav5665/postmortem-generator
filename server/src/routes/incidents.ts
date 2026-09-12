@@ -103,7 +103,13 @@ router.post(
       const durationMinutes = severityScorer.getDurationMinutes(start, end)
       const parsedLogs = logParserService.parseLogs(logsText)
       const timeline = timelineService.buildTimeline(parsedLogs.logs, start, end)
-      const severityResult = severityScorer.scoreSeverity(durationMinutes, parsedLogs.fatalCount, parsedLogs.errorCount)
+      const severityResult = severityScorer.scoreSeverity(
+  durationMinutes,
+  parsedLogs.fatalCount,
+  parsedLogs.errorCount,
+  parsedLogs.warnCount,
+  parsedLogs.totalLines
+)
 
       // Generate postmortem with Gemini
       const postmortemResult = await aiService.generatePostmortem(
