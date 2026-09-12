@@ -31,7 +31,9 @@ export default function Postmortem() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [editingField, setEditingField] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState<Record<string, string>>({})
+const [editValues, setEditValues] = useState<Record<string, string>>({})
+const [editingActions, setEditingActions] = useState(false)
+const [editableActions, setEditableActions] = useState<ActionItem[]>([])
 
   const { data: incident, isLoading, isError } = useQuery({
     queryKey: ['incident', id],
@@ -276,34 +278,121 @@ export default function Postmortem() {
       </div>
 
       {/* Action Items */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Action Items</h2>
-        <div className="space-y-3">
-          {actionItems.map((item, index) => (
-            <div key={index} className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={item.completed}
-                onChange={() => toggleActionMutation.mutate(index)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 cursor-pointer"
-              />
-              <div className="flex-1">
-                <p className={`text-sm ${item.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                  {item.task}
-                </p>
-                <div className="flex gap-3 mt-0.5">
-                  {item.owner && (
-                    <span className="text-xs text-gray-400">Owner: {item.owner}</span>
-                  )}
-                  {item.dueDate && item.dueDate !== 'Not specified' && (
-                    <span className="text-xs text-gray-400">Due: {item.dueDate}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+<div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+  <div className="flex items-center justify-between mb-4">
+    <h2 className="text-sm font-semibold text-gray-700">Action Items</h2>
+    {!editingActions ? (
+      <button
+        onClick={() => {
+          setEditableActions([...actionItems])
+          setEditingActions(true)
+        }}
+        className="no-print text-xs text-indigo-600 hover:text-indigo-800"
+      >
+        Edit
+      </button>
+    ) : (
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            updateMutation.mutate({
+              actionItems: editableActions
+            } as any)
+            setEditingActions(false)
+          }}
+          className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
+        >
+          Save
+        </button>
+        <button
+          onClick={() => setEditingActions(false)}
+          className="text-xs text-gray-500 px-3 py-1.5 rounded-md hover:bg-gray-100"
+        >
+          Cancel
+        </button>
       </div>
+    )}
+  </div>
+
+  {!editingActions ? (
+    // View mode
+    <div className="space-y-3">
+      {actionItems.map((item, index) => (
+        <div key={index} className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={item.completed}
+            onChange={() => toggleActionMutation.mutate(index)}
+            className="no-print mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 cursor-pointer"
+          />
+          <div className="flex-1">
+            <p className={`text-sm ${item.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+              {item.task}
+            </p>
+            <div className="flex gap-3 mt-0.5">
+              {item.owner && (
+                <span className="text-xs text-gray-400">Owner: {item.owner}</span>
+              )}
+              {item.dueDate && item.dueDate !== 'Not specified' && (
+                <span className="text-xs text-gray-400">Due: {item.dueDate}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    // Edit mode
+    <div className="space-y-3">
+      {editableActions.map((item, index) => (
+        <div key={index} className="flex items-start gap-2 p-3 border border-gray-200 rounded-lg">
+          <div className="flex-1 space-y-2">
+            <textarea
+              value={item.task}
+              onChange={e => setEditableActions(prev =>
+                prev.map((a, i) => i === index ? { ...a, task: e.target.value } : a)
+              )}
+              rows={2}
+              placeholder="Action item description"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <input
+              type="text"
+              value={item.owner}
+              onChange={e => setEditableActions(prev =>
+                prev.map((a, i) => i === index ? { ...a, owner: e.target.value } : a)
+              )}
+              placeholder="Owner"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <button
+            onClick={() => setEditableActions(prev => prev.filter((_, i) => i !== index))}
+            className="text-gray-400 hover:text-red-500 transition-colors mt-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      ))}
+
+      {/* Add new action item */}
+      <button
+        onClick={() => setEditableActions(prev => [
+          ...prev,
+          { task: '', owner: '', dueDate: 'Not specified', completed: false }
+        ])}
+        className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-2"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+        Add action item
+      </button>
+    </div>
+  )}
+</div>
 
     </div>
   )
