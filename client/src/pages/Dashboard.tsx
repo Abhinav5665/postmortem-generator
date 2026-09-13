@@ -170,8 +170,15 @@ const filteredData = data?.filter(incident => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm font-medium text-gray-900">{incident.serviceName}</span>
-                  </td>
+  <div className="flex items-center gap-2">
+    <span className="text-sm font-medium text-gray-900">{incident.serviceName}</span>
+    {incident.postmortem && (incident.postmortem as any).recurringAlert?.isRecurring && (
+      <span className="text-xs bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-medium">
+        Recurring
+      </span>
+    )}
+  </div>
+</td>
                   <td className="px-6 py-4">
                     <SeverityBadge severity={incident.severity} />
                   </td>

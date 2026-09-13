@@ -7,6 +7,7 @@ import severityScorer from '../services/severityScorer'
 import * as aiService from '../services/aiService'
 import { upload } from '../middleware/upload'
 import { validateBody, IncidentSchema } from '../middleware/validate'
+import * as recurringDetector from '../services/recurringDetector'
 console.log('severityScorer module:', Object.keys(severityScorer))
 
 const router = Router()
@@ -29,6 +30,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
           select: {
             id: true,
             generatedAt: true,
+              recurringAlert: true,
           },
         },
       },
@@ -152,7 +154,34 @@ router.post(
         include: { postmortem: true },
       })
 
-      res.status(201).json({ success: true, data: incident })
+      // Check for recurring incidents
+// Check for recurring incidents
+const recurringResult = await recurringDetector.checkRecurringIncident(
+  serviceName,
+  incident.id,
+  postmortemResult.rootCause,
+  postmortemResult.summary
+)
+
+console.log('Recurring check result:', JSON.stringify(recurringResult))
+
+if (recurringResult.isRecurring) {
+  await prisma.postmortem.update({
+    where: { incidentId: incident.id },
+    data: {
+      recurringAlert: JSON.parse(JSON.stringify(recurringResult)),
+    },
+  })
+}
+
+// Fetch updated incident with recurringAlert included
+const updatedIncident = await prisma.incident.findUnique({
+  where: { id: incident.id },
+  include: { postmortem: true },
+})
+
+res.status(201).json({ success: true, data: updatedIncident })
+    
 
     } catch (error) {
       if (error instanceof SyntaxError) {

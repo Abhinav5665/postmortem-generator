@@ -38,6 +38,8 @@ model Postmortem {
   wentWell      String    @db.Text
   severity      String
 
+   recurringAlert Json?
+
   // Action items with owner + due date
   actionItems   Json
 

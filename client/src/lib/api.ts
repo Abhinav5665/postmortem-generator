@@ -51,11 +51,16 @@ export interface Postmortem {
   wentWell: string
   actionItems: ActionItem[]
   severity: 'P0' | 'P1' | 'P2'
+  recurringAlert: {
+    isRecurring: boolean
+    serviceIncidentCount: number
+    pattern: string
+    recommendation: string
+  } | null
   isEdited: boolean
   editedAt: string | null
   generatedAt: string
 }
-
 export interface TeamMember {
   name: string
   role: string
