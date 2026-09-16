@@ -57,6 +57,12 @@ export interface Postmortem {
     pattern: string
     recommendation: string
   } | null
+  editHistory: {
+    field: string
+    oldValue: string
+      newValue: string
+    editedAt: string
+  }[] | null
   isEdited: boolean
   editedAt: string | null
   generatedAt: string

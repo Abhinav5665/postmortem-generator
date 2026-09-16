@@ -1,9 +1,55 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, differenceInMinutes } from 'date-fns'
+import { differenceInMinutes } from 'date-fns'
 import { incidentsApi, postmortemsApi } from '../lib/api'
 import type { ActionItem, TeamMember } from '../lib/api'
+
+// Truncated text with read more toggle
+function ExpandableText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const isLong = text.length > 120
+
+  return (
+    <div>
+      <p className="text-xs text-gray-600 whitespace-pre-wrap">
+        {expanded || !isLong ? text : text.substring(0, 120) + '...'}
+      </p>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(prev => !prev)}
+          className="text-xs text-indigo-500 hover:text-indigo-700 mt-1"
+        >
+          {expanded ? 'Show less' : 'Read more'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Compare two action item arrays and return diff
+function getActionItemDiff(oldJson: string, newJson: string) {
+  try {
+    const oldItems: ActionItem[] = JSON.parse(oldJson)
+    const newItems: ActionItem[] = JSON.parse(newJson)
+
+    const added = newItems.filter(
+      curr => !oldItems.some(old => old.task === curr.task)
+    )
+    const removed = oldItems.filter(
+      old => !newItems.some(curr => curr.task === old.task)
+    )
+    const edited = newItems.filter(curr =>
+      oldItems.some(
+        old => old.task === curr.task && old.owner !== curr.owner
+      )
+    )
+
+    return { added, removed, edited }
+  } catch {
+    return { added: [], removed: [], edited: [] }
+  }
+}
 
 function SeverityBadge({ severity }: { severity: 'P0' | 'P1' | 'P2' }) {
   const styles = {
@@ -30,10 +76,13 @@ export default function Postmortem() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // ALL hooks at the top
   const [editingField, setEditingField] = useState<string | null>(null)
-const [editValues, setEditValues] = useState<Record<string, string>>({})
-const [editingActions, setEditingActions] = useState(false)
-const [editableActions, setEditableActions] = useState<ActionItem[]>([])
+  const [editValues, setEditValues] = useState<Record<string, string>>({})
+  const [editingActions, setEditingActions] = useState(false)
+  const [editableActions, setEditableActions] = useState<ActionItem[]>([])
+  const [showHistory, setShowHistory] = useState(false)
 
   const { data: incident, isLoading, isError } = useQuery({
     queryKey: ['incident', id],
@@ -109,29 +158,30 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
   const actionItems = postmortem.actionItems as ActionItem[]
 
   return (
-   <div className="p-8 max-w-7xl mx-auto w-full">
- {/* Top bar */}
-<div className="flex items-center justify-between mb-8">
-  <button
-    onClick={() => navigate('/dashboard')}
-    className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
-  >
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-    Back to Dashboard
-  </button>
+    <div className="p-8 max-w-4xl mx-auto w-full">
 
-  <button
-    onClick={() => window.print()}
-    className="no-print flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-  >
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-    Export PDF
-  </button>
-</div>
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-8">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Dashboard
+        </button>
+
+        <button
+          onClick={() => window.print()}
+          className="no-print flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Export PDF
+        </button>
+      </div>
 
       {/* Title */}
       <div className="mb-6">
@@ -146,8 +196,8 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
         </div>
         <div className="flex items-center gap-4 text-sm text-gray-500">
           <span>
-  {new Date(incident.startTime).toISOString().substring(0, 10)} · {new Date(incident.startTime).toISOString().substring(11, 16)} — {new Date(incident.endTime).toISOString().substring(11, 16)} UTC
-</span>
+            {new Date(incident.startTime).toISOString().substring(0, 10)} · {new Date(incident.startTime).toISOString().substring(11, 16)} — {new Date(incident.endTime).toISOString().substring(11, 16)} UTC
+          </span>
           <span>Duration: {getDuration(incident.startTime, incident.endTime)}</span>
           <button
             onClick={() => statusMutation.mutate(
@@ -164,7 +214,7 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
         </div>
       </div>
 
-      {/* Impact metrics — borrowed from Image 2 */}
+      {/* Impact metrics */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-500 mb-1">Downtime</p>
@@ -180,45 +230,46 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
         </div>
       </div>
 
-      {/* Team */}
       {/* Recurring Incident Alert */}
-{postmortem.recurringAlert && postmortem.recurringAlert.isRecurring && (
-  <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 mb-6">
-    <div className="flex items-start gap-3">
-      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-orange-800 mb-1">
-          ⚠️ Recurring Incident Detected — {postmortem.recurringAlert.serviceIncidentCount} incidents for this service in 30 days
-        </p>
-        <p className="text-sm text-orange-700 mb-2">
-          <span className="font-medium">Pattern:</span> {postmortem.recurringAlert.pattern}
-        </p>
-        <p className="text-sm text-orange-700">
-          <span className="font-medium">Recommendation:</span> {postmortem.recurringAlert.recommendation}
-        </p>
-      </div>
-    </div>
-  </div>
-)}
-     {(incident.teamMembers as TeamMember[])?.length > 0 && (
-  <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-    <h2 className="text-sm font-semibold text-gray-700 mb-3">Team</h2>
-    <div className="divide-y divide-gray-100">
-      {(incident.teamMembers as TeamMember[]).map((member, index) => (
-        <div key={index} className="flex items-center justify-between py-2">
-          <span className="text-sm font-medium text-gray-900">{member.name}</span>
-          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-            {member.role}
-          </span>
+      {postmortem.recurringAlert && postmortem.recurringAlert.isRecurring && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-orange-800 mb-1">
+                ⚠️ Recurring Incident Detected — {postmortem.recurringAlert.serviceIncidentCount} incidents for this service in 30 days
+              </p>
+              <p className="text-sm text-orange-700 mb-2">
+                <span className="font-medium">Pattern:</span> {postmortem.recurringAlert.pattern}
+              </p>
+              <p className="text-sm text-orange-700">
+                <span className="font-medium">Recommendation:</span> {postmortem.recurringAlert.recommendation}
+              </p>
+            </div>
+          </div>
         </div>
-      ))}
-    </div>
-  </div>
-)}
+      )}
+
+      {/* Team */}
+      {(incident.teamMembers as TeamMember[])?.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Team</h2>
+          <div className="divide-y divide-gray-100">
+            {(incident.teamMembers as TeamMember[]).map((member, index) => (
+              <div key={index} className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {member.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Editable sections */}
       {[
@@ -290,11 +341,11 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
                 )}
               </div>
               <div className="pb-3">
-               <p className="text-xs text-gray-400 mb-0.5">
-  {event.time
-    ? new Date(event.time).toISOString().substring(11, 16) + ' UTC'
-    : 'Unknown'}
-</p>
+                <p className="text-xs text-gray-400 mb-0.5">
+                  {event.time
+                    ? new Date(event.time).toISOString().substring(11, 16) + ' UTC'
+                    : 'Unknown'}
+                </p>
                 <p className="text-sm text-gray-700">{event.event}</p>
               </div>
             </div>
@@ -303,121 +354,208 @@ const [editableActions, setEditableActions] = useState<ActionItem[]>([])
       </div>
 
       {/* Action Items */}
-<div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-  <div className="flex items-center justify-between mb-4">
-    <h2 className="text-sm font-semibold text-gray-700">Action Items</h2>
-    {!editingActions ? (
-      <button
-        onClick={() => {
-          setEditableActions([...actionItems])
-          setEditingActions(true)
-        }}
-        className="no-print text-xs text-indigo-600 hover:text-indigo-800"
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-gray-700">Action Items</h2>
+          {!editingActions ? (
+            <button
+              onClick={() => {
+                setEditableActions([...actionItems])
+                setEditingActions(true)
+              }}
+              className="no-print text-xs text-indigo-600 hover:text-indigo-800"
+            >
+              Edit
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  updateMutation.mutate({ actionItems: editableActions } as any)
+                  setEditingActions(false)
+                }}
+                className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingActions(false)}
+                className="text-xs text-gray-500 px-3 py-1.5 rounded-md hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {!editingActions ? (
+          <div className="space-y-3">
+            {actionItems.map((item, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={item.completed}
+                  onChange={() => toggleActionMutation.mutate(index)}
+                  className="no-print mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 cursor-pointer"
+                />
+                <div className="flex-1">
+                  <p className={`text-sm ${item.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                    {item.task}
+                  </p>
+                  <div className="flex gap-3 mt-0.5">
+                    {item.owner && (
+                      <span className="text-xs text-gray-400">Owner: {item.owner}</span>
+                    )}
+                    {item.dueDate && item.dueDate !== 'Not specified' && (
+                      <span className="text-xs text-gray-400">Due: {item.dueDate}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {editableActions.map((item, index) => (
+              <div key={index} className="flex items-start gap-2 p-3 border border-gray-200 rounded-lg">
+                <div className="flex-1 space-y-2">
+                  <textarea
+                    value={item.task}
+                    onChange={e => setEditableActions(prev =>
+                      prev.map((a, i) => i === index ? { ...a, task: e.target.value } : a)
+                    )}
+                    rows={2}
+                    placeholder="Action item description"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="text"
+                    value={item.owner}
+                    onChange={e => setEditableActions(prev =>
+                      prev.map((a, i) => i === index ? { ...a, owner: e.target.value } : a)
+                    )}
+                    placeholder="Owner"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <button
+                  onClick={() => setEditableActions(prev => prev.filter((_, i) => i !== index))}
+                  className="text-gray-400 hover:text-red-500 transition-colors mt-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setEditableActions(prev => [
+                ...prev,
+                { task: '', owner: '', dueDate: 'Not specified', completed: false }
+              ])}
+              className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add action item
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Edit History */}
+{postmortem.editHistory && postmortem.editHistory.length > 0 && (
+  <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 no-print">
+    <button
+      onClick={() => setShowHistory(prev => !prev)}
+      className="w-full flex items-center justify-between text-sm font-semibold text-gray-700"
+    >
+      <span>Edit History ({postmortem.editHistory.length} changes)</span>
+      <svg
+        className={`w-4 h-4 text-gray-400 transition-transform ${showHistory ? 'rotate-180' : ''}`}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
       >
-        Edit
-      </button>
-    ) : (
-      <div className="flex gap-2">
-        <button
-          onClick={() => {
-            updateMutation.mutate({
-              actionItems: editableActions
-            } as any)
-            setEditingActions(false)
-          }}
-          className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
-        >
-          Save
-        </button>
-        <button
-          onClick={() => setEditingActions(false)}
-          className="text-xs text-gray-500 px-3 py-1.5 rounded-md hover:bg-gray-100"
-        >
-          Cancel
-        </button>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+
+    {showHistory && (
+      <div className="mt-4 space-y-4">
+        {postmortem.editHistory.map((entry, index) => (
+          <div key={index} className="border border-gray-100 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-700 capitalize">
+                {entry.field.replace(/([A-Z])/g, ' $1').trim()} — edited
+              </span>
+              <span className="text-xs text-gray-400">
+                {new Date(entry.editedAt).toISOString().substring(0, 16).replace('T', ' ')} UTC
+              </span>
+            </div>
+
+            {entry.field === 'actionItems' ? (
+              // Action item diff
+              (() => {
+                const { added, removed, edited } = getActionItemDiff(
+  entry.oldValue,
+  entry.newValue  // ← use stored newValue instead of current state
+)
+                return (
+                  <div className="space-y-2">
+                    {removed.map((item, i) => (
+                      <div key={i} className="flex items-start gap-2 bg-red-50 border border-red-100 rounded p-2">
+                        <span className="text-xs text-red-500 font-bold mt-0.5">−</span>
+                        <div>
+                          <p className="text-xs text-red-600 line-through">{item.task}</p>
+                          {item.owner && <p className="text-xs text-red-400">Owner: {item.owner}</p>}
+                        </div>
+                      </div>
+                    ))}
+                    {added.map((item, i) => (
+                      <div key={i} className="flex items-start gap-2 bg-green-50 border border-green-100 rounded p-2">
+                        <span className="text-xs text-green-600 font-bold mt-0.5">+</span>
+                        <div>
+                          <p className="text-xs text-green-700">{item.task}</p>
+                          {item.owner && <p className="text-xs text-green-500">Owner: {item.owner}</p>}
+                        </div>
+                      </div>
+                    ))}
+                    {edited.map((item, i) => (
+                      <div key={i} className="flex items-start gap-2 bg-yellow-50 border border-yellow-100 rounded p-2">
+                        <span className="text-xs text-yellow-600 font-bold mt-0.5">✏</span>
+                        <div>
+                          <p className="text-xs text-yellow-700">{item.task}</p>
+                          <p className="text-xs text-yellow-500">Owner changed to: {item.owner}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {added.length === 0 && removed.length === 0 && edited.length === 0 && (
+                      <p className="text-xs text-gray-400 italic">Action items were reordered or completion status changed</p>
+                    )}
+                  </div>
+                )
+              })()
+            ) : (
+              // Text field before/after
+              <div className="space-y-2">
+                <div className="bg-red-50 border border-red-100 rounded p-2">
+                  <p className="text-xs text-red-500 font-medium mb-1">Before</p>
+                  <ExpandableText text={entry.oldValue || 'Empty'} />
+                </div>
+                <div className="bg-green-50 border border-green-100 rounded p-2">
+  <p className="text-xs text-green-600 font-medium mb-1">After</p>
+  <ExpandableText text={entry.newValue || 'Empty'} />
+</div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     )}
   </div>
-
-  {!editingActions ? (
-    // View mode
-    <div className="space-y-3">
-      {actionItems.map((item, index) => (
-        <div key={index} className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            checked={item.completed}
-            onChange={() => toggleActionMutation.mutate(index)}
-            className="no-print mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 cursor-pointer"
-          />
-          <div className="flex-1">
-            <p className={`text-sm ${item.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-              {item.task}
-            </p>
-            <div className="flex gap-3 mt-0.5">
-              {item.owner && (
-                <span className="text-xs text-gray-400">Owner: {item.owner}</span>
-              )}
-              {item.dueDate && item.dueDate !== 'Not specified' && (
-                <span className="text-xs text-gray-400">Due: {item.dueDate}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    // Edit mode
-    <div className="space-y-3">
-      {editableActions.map((item, index) => (
-        <div key={index} className="flex items-start gap-2 p-3 border border-gray-200 rounded-lg">
-          <div className="flex-1 space-y-2">
-            <textarea
-              value={item.task}
-              onChange={e => setEditableActions(prev =>
-                prev.map((a, i) => i === index ? { ...a, task: e.target.value } : a)
-              )}
-              rows={2}
-              placeholder="Action item description"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <input
-              type="text"
-              value={item.owner}
-              onChange={e => setEditableActions(prev =>
-                prev.map((a, i) => i === index ? { ...a, owner: e.target.value } : a)
-              )}
-              placeholder="Owner"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <button
-            onClick={() => setEditableActions(prev => prev.filter((_, i) => i !== index))}
-            className="text-gray-400 hover:text-red-500 transition-colors mt-1"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      ))}
-
-      {/* Add new action item */}
-      <button
-        onClick={() => setEditableActions(prev => [
-          ...prev,
-          { task: '', owner: '', dueDate: 'Not specified', completed: false }
-        ])}
-        className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-2"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-        Add action item
-      </button>
-    </div>
-  )}
-</div>
+)}
 
     </div>
   )

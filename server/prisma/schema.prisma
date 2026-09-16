@@ -40,6 +40,8 @@ model Postmortem {
 
    recurringAlert Json?
 
+   editHistory       Json?   // array of { field, oldValue, editedAt }
+
   // Action items with owner + due date
   actionItems   Json
 

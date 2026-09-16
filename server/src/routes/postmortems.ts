@@ -18,9 +18,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
             endTime: true,
             severity: true,
             status: true,
-            onCallEngineer: true,
-            incidentCommander: true,
-            participants: true,
+            teamMembers: true,
           },
         },
       },
@@ -52,16 +50,57 @@ router.patch(
         return
       }
 
+      const existingHistory = (existing.editHistory as {
+        field: string
+        oldValue: string
+        newValue: string
+        editedAt: string
+      }[]) || []
+
+      // Only record fields whose values actually changed
+      const newHistoryEntries = Object.keys(req.body)
+        .filter(key => key !== 'actionItems')
+        .filter(key => {
+          const oldValue = existing[key as keyof typeof existing]
+          const newValue = req.body[key]
+          return String(oldValue ?? '') !== String(newValue ?? '')
+        })
+        .map(key => ({
+          field: key,
+          oldValue: String(existing[key as keyof typeof existing] ?? ''),
+          newValue: String(req.body[key] ?? ''),
+          editedAt: new Date().toISOString(),
+        }))
+
+      // Only record action items if they actually changed
+      if (req.body.actionItems !== undefined) {
+        const oldActionItems = JSON.stringify(existing.actionItems)
+        const newActionItems = JSON.stringify(req.body.actionItems)
+        if (oldActionItems !== newActionItems) {
+          newHistoryEntries.push({
+            field: 'actionItems',
+            oldValue: oldActionItems,
+            newValue: newActionItems,
+            editedAt: new Date().toISOString(),
+          })
+        }
+      }
+
+      const hasChanges = newHistoryEntries.length > 0
+
       const updated = await prisma.postmortem.update({
         where: { id: String(req.params.id) },
         data: {
           ...req.body,
-          // If actionItems provided, cast to plain JSON
-          ...(req.body.actionItems && {
+          ...(req.body.actionItems !== undefined && {
             actionItems: JSON.parse(JSON.stringify(req.body.actionItems)),
           }),
-          isEdited: true,
-          editedAt: new Date(),
+          isEdited: hasChanges ? true : existing.isEdited,
+          editedAt: hasChanges ? new Date() : existing.editedAt,
+          editHistory: JSON.parse(JSON.stringify([
+            ...existingHistory,
+            ...newHistoryEntries,
+          ])),
         },
       })
 
@@ -86,7 +125,7 @@ router.patch(
         return
       }
 
-     const index = parseInt(String(req.params.index))
+      const index = parseInt(String(req.params.index))
       const actionItems = postmortem.actionItems as {
         task: string
         owner: string
@@ -99,8 +138,28 @@ router.patch(
         return
       }
 
+      const oldActionItems = JSON.stringify(actionItems)
+
       // Toggle completed
       actionItems[index].completed = !actionItems[index].completed
+
+      // Add to edit history
+      const existingHistory = (postmortem.editHistory as {
+        field: string
+        oldValue: string
+        newValue: string
+        editedAt: string
+      }[]) || []
+
+      const newHistory = [
+        ...existingHistory,
+        {
+          field: 'actionItems',
+          oldValue: oldActionItems,
+          newValue: JSON.stringify(actionItems),
+          editedAt: new Date().toISOString(),
+        },
+      ]
 
       const updated = await prisma.postmortem.update({
         where: { id: String(req.params.id) },
@@ -108,6 +167,7 @@ router.patch(
           actionItems: JSON.parse(JSON.stringify(actionItems)),
           isEdited: true,
           editedAt: new Date(),
+          editHistory: JSON.parse(JSON.stringify(newHistory)),
         },
       })
 

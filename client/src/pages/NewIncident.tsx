@@ -3,6 +3,21 @@ import { useNavigate } from 'react-router-dom'
 import { incidentsApi } from '../lib/api'
 import type { TeamMember } from '../lib/api'
 
+
+// ... imports
+
+function extractFirstTimestamp(logs: string): string {
+  const lines = logs.split('\n').filter(Boolean)
+  for (const line of lines) {
+    const match = line.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/)
+    if (match) return match[1]
+  }
+  return ''
+}
+
+
+  // ... component code
+
 export default function NewIncident() {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
@@ -212,7 +227,19 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
             <textarea
               name="rawLogs"
               value={form.rawLogs}
-              onChange={handleChange}
+              onChange={e => {
+  const logs = e.target.value
+  setForm(prev => {
+    const detected = extractFirstTimestamp(logs)
+    return {
+      ...prev,
+      rawLogs: logs,
+      // Only auto-fill if start time is empty
+      startTime: !prev.startTime && detected ? detected : prev.startTime,
+    }
+  })
+}}
+          
               rows={8}
               placeholder="Paste your raw log output here..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-950 text-green-400 placeholder-gray-600"
