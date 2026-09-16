@@ -8,6 +8,7 @@ export const IncidentSchema = z.object({
   engineerNotes: z.string().min(1, 'Engineer notes are required'),
   rawLogs: z.string().optional(),
   teamMembers: z.string().optional(), 
+  templateType: z.string().optional(),
 })
 
 export const UpdatePostmortemSchema = z.object({

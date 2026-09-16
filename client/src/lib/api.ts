@@ -95,6 +95,9 @@ export const incidentsApi = {
 
   updateStatus: (id: string, status: 'OPEN' | 'RESOLVED') =>
     api.patch(`/incidents/${id}/status`, { status }),
+
+   notifySlack: (id: string) =>
+    api.post(`/incidents/${id}/notify-slack`),
 }
 
 export const postmortemsApi = {

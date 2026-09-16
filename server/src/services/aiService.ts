@@ -57,7 +57,8 @@ export async function generatePostmortem(
   timeline: TimelineEvent[],
   engineerNotes: string,
   severityResult: SeverityResult,
- teamMembers?: { name: string; role: string }[]
+ teamMembers?: { name: string; role: string }[],
+  templateType: string = 'General'
 ): Promise<PostmortemResult> {
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
@@ -80,6 +81,25 @@ console.log('Gemini model:', process.env.GEMINI_MODEL)
   ? teamMembers.map(m => `- ${m.name} (${m.role})`).join('\n')
   : 'Not specified'
 
+
+  const templateInstructions: Record<string, string> = {
+  General: ` GENERAL TEMPLATE: - Analyze the incident using the available logs, timeline, and engineer notes - Focus on the most important facts, root cause, impact, resolution, and prevention - Do not assume details that are not supported by the available evidence `.trim(),
+  Deployment: `
+DEPLOYMENT TEMPLATE FOCUS: - Identify what was deployed or changed, if supported by the logs or engineer notes - Determine whether the deployment or configuration change is connected to the incident - Describe the deployment timeline and any rollback or recovery steps taken - Suggest deployment or release-process improvements directly related to the incident - Do not assume a deployment caused the incident without supporting evidence `.trim(),
+  Database: `
+DATABASE TEMPLATE FOCUS: - Identify the database, table, query, or database operation involved, if supported by the evidence - Analyze connection, connection-pool, replication, locking, timeout, or schema issues when present - Describe how database availability or performance affected the service - Suggest database monitoring, reliability, or optimization improvements directly related to the incident - Do not invent database names, tables, queries, or schema changes `.trim(),
+  Security: `
+SECURITY TEMPLATE FOCUS: - Describe how the security issue was discovered, if supported by the evidence - Identify potentially affected systems or data only when supported by the logs or engineer notes - Explain the scope and potential blast radius based only on available evidence - Describe containment, remediation, or recovery steps that were actually taken - Suggest security hardening measures directly related to the incident - Do not claim a breach, exposure, or compromised data without supporting evidence `.trim(),
+  Performance: `
+PERFORMANCE TEMPLATE FOCUS: - Identify the specific performance issue, such as latency, CPU, memory, throughput, or resource exhaustion, if supported by the evidence - Determine what triggered or contributed to the performance degradation - Describe how performance affected users or system behavior based only on available evidence - Identify relevant bottlenecks or resource constraints when supported by the logs or notes - Suggest monitoring, capacity, or optimization improvements directly related to the incident - Do not invent performance metrics or bottlenecks `.trim(),
+  Infrastructure: `
+INFRASTRUCTURE TEMPLATE FOCUS: - Identify the affected infrastructure, such as servers, networking, DNS, cloud services, containers, or load balancers, if supported by the evidence - Explain the infrastructure failure mode based on the available logs and notes - Describe the recovery or failover steps that were actually taken - Explain the impact on the affected service based only on available evidence - Suggest infrastructure resilience, monitoring, or redundancy improvements directly related to the incident - Do not invent infrastructure components, failures, or recovery actions `.trim(),
+}
+
+const templateFocus = templateInstructions[templateType] || ''
+
+  
+
   const prompt = `
 You are a senior site reliability engineer writing a professional postmortem document.
 
@@ -95,6 +115,8 @@ CRITICAL RULES:
 - Do NOT include a severity field
 - Do NOT invent due dates — always return "Not specified" for dueDate
 - For wentWell — only write what is directly supported by the logs or engineer notes. If there is no evidence of what went well, return "Not specified"
+
+${templateFocus ? `\nTEMPLATE FOCUS (${templateType} incident):\n${templateFocus}\n` : ''}
 
 INCIDENT DETAILS:
 Service: ${serviceName}

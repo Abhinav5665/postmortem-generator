@@ -75,6 +75,7 @@ router.post(
         engineerNotes,
         rawLogs,
         teamMembers,
+         templateType,
       } = req.body
 
       // If file uploaded, use file contents — otherwise use pasted logs
@@ -123,7 +124,8 @@ router.post(
         timeline,
         engineerNotes,
         severityResult,
-        teamMembersList
+        teamMembersList,
+        templateType || 'General',
       )
 
       // Save incident and postmortem to DB in one transaction
@@ -136,7 +138,8 @@ router.post(
           engineerNotes,
           severity: severityResult.level,
           status: 'OPEN',
-         teamMembers: JSON.parse(JSON.stringify(teamMembersList)),
+          templateType: templateType || 'General',
+          teamMembers: JSON.parse(JSON.stringify(teamMembersList)),
           postmortem: {
             create: {
               summary: postmortemResult.summary,

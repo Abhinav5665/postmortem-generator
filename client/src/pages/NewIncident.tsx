@@ -34,6 +34,7 @@ export default function NewIncident() {
     onCallEngineer: '',
     incidentCommander: '',
     participants: '',
+    templateType: 'General',
   })
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
@@ -83,6 +84,7 @@ function updateTeamMember(index: number, field: 'name' | 'role', value: string) 
       formData.append('startTime', new Date(form.startTime + ':00Z').toISOString())
 formData.append('endTime', new Date(form.endTime + ':00Z').toISOString())
       formData.append('engineerNotes', form.engineerNotes)
+      formData.append('templateType', form.templateType)
 
       const validTeamMembers = teamMembers.filter(m => m.name && m.role)
 if (validTeamMembers.length > 0) {
@@ -135,6 +137,28 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
+
+        {/* Template Type */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Incident Type
+  </label>
+  <div className="grid grid-cols-3 gap-2">
+    {['General', 'Deployment', 'Database', 'Security', 'Performance', 'Infrastructure'].map(type => (
+      <button
+        key={type}
+        onClick={() => setForm(prev => ({ ...prev, templateType: type }))}
+        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+          form.templateType === type
+            ? 'bg-indigo-600 text-white border-indigo-600'
+            : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'
+        }`}
+      >
+        {type}
+      </button>
+    ))}
+  </div>
+</div>
 
        {/* Times */}
 <div className="grid grid-cols-2 gap-4">

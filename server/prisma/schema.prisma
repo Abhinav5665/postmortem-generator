@@ -15,6 +15,8 @@ model Incident {
   engineerNotes    String      @db.Text
   severity         String
   status           String      @default("OPEN")
+
+  templateType    String  @default("General")
   
   // Team members
   teamMembers       Json?

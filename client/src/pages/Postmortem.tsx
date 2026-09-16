@@ -83,6 +83,8 @@ export default function Postmortem() {
   const [editingActions, setEditingActions] = useState(false)
   const [editableActions, setEditableActions] = useState<ActionItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [slackSent, setSlackSent] = useState(false)
+const [slackError, setSlackError] = useState<string | null>(null)
 
   const { data: incident, isLoading, isError } = useQuery({
     queryKey: ['incident', id],
@@ -114,6 +116,16 @@ export default function Postmortem() {
       queryClient.invalidateQueries({ queryKey: ['incident', id] })
     },
   })
+  const slackMutation = useMutation({
+  mutationFn: () => incidentsApi.notifySlack(id!),
+  onSuccess: () => {
+    setSlackSent(true)
+    setSlackError(null)
+  },
+  onError: (error: any) => {
+    setSlackError(error.response?.data?.error || 'Failed to send to Slack')
+  },
+})
 
   function startEdit(field: string, currentValue: string) {
     setEditingField(field)
@@ -172,15 +184,33 @@ export default function Postmortem() {
           Back to Dashboard
         </button>
 
-        <button
-          onClick={() => window.print()}
-          className="no-print flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Export PDF
-        </button>
+       <div className="no-print flex items-center gap-3">
+  {slackSent && (
+    <span className="text-xs text-green-600 font-medium">✓ Sent to Slack</span>
+  )}
+  {slackError && (
+    <span className="text-xs text-red-500">{slackError}</span>
+  )}
+  <button
+    onClick={() => slackMutation.mutate()}
+    disabled={slackMutation.isPending || slackSent}
+    className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+  >
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+    </svg>
+    {slackMutation.isPending ? 'Sending...' : slackSent ? 'Sent' : 'Send to Slack'}
+  </button>
+  <button
+    onClick={() => window.print()}
+    className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+  >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    Export PDF
+  </button>
+</div>
       </div>
 
       {/* Title */}
