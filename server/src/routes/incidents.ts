@@ -7,7 +7,10 @@ import severityScorer from '../services/severityScorer'
 import * as aiService from '../services/aiService'
 import { upload } from '../middleware/upload'
 import { validateBody, IncidentSchema } from '../middleware/validate'
+import * as slackService from '../services/slackService'
 import * as recurringDetector from '../services/recurringDetector'
+
+
 console.log('severityScorer module:', Object.keys(severityScorer))
 
 const router = Router()
@@ -198,6 +201,66 @@ res.status(201).json({ success: true, data: updatedIncident })
     }
   }
 )
+
+
+// POST /api/incidents/:id/notify-slack
+router.post('/:id/notify-slack', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const incident = await prisma.incident.findUnique({
+      where: { id: String(req.params.id) },
+      include: { postmortem: true },
+    })
+
+    if (!incident) {
+      res.status(404).json({ error: 'Incident not found' })
+      return
+    }
+
+    if (!incident.postmortem) {
+      res.status(404).json({ error: 'No postmortem found for this incident' })
+      return
+    }
+
+    const postmortem = incident.postmortem
+    const actionItems = postmortem.actionItems as {
+      task: string
+      owner: string
+      completed: boolean
+    }[]
+
+    const durationMinutes = Math.round(
+      (new Date(incident.endTime).getTime() - new Date(incident.startTime).getTime()) / 1000 / 60
+    )
+    const duration = durationMinutes < 60
+      ? `${durationMinutes}m`
+      : `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
+
+    await slackService.sendPostmortemToSlack({
+      serviceName: incident.serviceName,
+      severity: incident.severity as 'P0' | 'P1' | 'P2',
+      status: incident.status as 'OPEN' | 'RESOLVED',
+      duration,
+      summary: postmortem.summary,
+      impactMetrics: postmortem.impactMetrics as {
+        failureRate: string
+        affectedUsers: string
+        downtime: string
+      },
+      actionItems,
+      incidentId: incident.id,
+    })
+
+    res.json({ success: true, message: 'Postmortem sent to Slack successfully' })
+  } catch (error) {
+    console.error('Slack notification error:', error)
+    if (error instanceof Error && error.message === 'Slack webhook URL is not configured') {
+      res.status(503).json({ error: 'Slack is not configured. Add SLACK_WEBHOOK_URL to your .env file.' })
+    } else {
+      res.status(500).json({ error: 'Failed to send Slack notification' })
+    }
+  }
+})
+
 
 // PATCH /api/incidents/:id/status — update incident status
 router.patch('/:id/status', async (req: Request, res: Response): Promise<void> => {
