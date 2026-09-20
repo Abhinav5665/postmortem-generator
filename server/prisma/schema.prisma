@@ -3,7 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  
 }
 
 model Incident {
@@ -52,4 +53,11 @@ model Postmortem {
   editedAt      DateTime?
 
   generatedAt   DateTime  @default(now())
+
+  
+}
+model Settings {
+  id           String   @id @default("default")
+  slackWebhook String?
+  updatedAt    DateTime @updatedAt
 }

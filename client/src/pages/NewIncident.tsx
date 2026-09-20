@@ -138,12 +138,12 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
           />
         </div>
 
-        {/* Template Type */}
+       {/* Template Type */}
 <div>
   <label className="block text-sm font-medium text-gray-700 mb-1">
     Incident Type
   </label>
-  <div className="grid grid-cols-3 gap-2">
+  <div className="grid grid-cols-3 gap-2 mb-2">
     {['General', 'Deployment', 'Database', 'Security', 'Performance', 'Infrastructure'].map(type => (
       <button
         key={type}
@@ -158,6 +158,13 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
       </button>
     ))}
   </div>
+  <input
+    type="text"
+    value={form.templateType}
+    onChange={e => setForm(prev => ({ ...prev, templateType: e.target.value }))}
+    placeholder="Or type a custom incident type..."
+    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+  />
 </div>
 
        {/* Times */}
