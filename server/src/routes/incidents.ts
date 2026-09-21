@@ -41,6 +41,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
     res.json({ success: true, data: incidents })
   } catch (error) {
+     console.error('GET incidents error:', error)
     res.status(500).json({ error: 'Failed to fetch incidents' })
   }
 })
@@ -206,6 +207,16 @@ res.status(201).json({ success: true, data: updatedIncident })
 // POST /api/incidents/:id/notify-slack
 router.post('/:id/notify-slack', async (req: Request, res: Response): Promise<void> => {
   try {
+    // Fetch webhook URL from settings
+    const settings = await prisma.settings.findUnique({
+      where: { id: 'default' },
+    })
+
+    if (!settings?.slackWebhook) {
+      res.status(503).json({ error: 'Slack is not configured. Add your webhook URL in settings.' })
+      return
+    }
+
     const incident = await prisma.incident.findUnique({
       where: { id: String(req.params.id) },
       include: { postmortem: true },
@@ -248,16 +259,12 @@ router.post('/:id/notify-slack', async (req: Request, res: Response): Promise<vo
       },
       actionItems,
       incidentId: incident.id,
-    })
+    }, settings.slackWebhook)  // ← pass webhook URL here
 
     res.json({ success: true, message: 'Postmortem sent to Slack successfully' })
   } catch (error) {
     console.error('Slack notification error:', error)
-    if (error instanceof Error && error.message === 'Slack webhook URL is not configured') {
-      res.status(503).json({ error: 'Slack is not configured. Add SLACK_WEBHOOK_URL to your .env file.' })
-    } else {
-      res.status(500).json({ error: 'Failed to send Slack notification' })
-    }
+    res.status(500).json({ error: 'Failed to send Slack notification' })
   }
 })
 
