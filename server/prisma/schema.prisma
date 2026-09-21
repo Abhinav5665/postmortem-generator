@@ -60,4 +60,28 @@ model Settings {
   id           String   @id @default("default")
   slackWebhook String?
   updatedAt    DateTime @updatedAt
+
+
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  role         String       @default("MEMBER")
+  createdAt    DateTime     @default(now())
+  invitations  Invitation[]
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  email       String
+  role        String    @default("MEMBER")
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  invitedById String
+  invitedBy   User      @relation(fields: [invitedById], references: [id])
+  createdAt   DateTime  @default(now())
 }
