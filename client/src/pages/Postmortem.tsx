@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { differenceInMinutes } from 'date-fns'
-import { incidentsApi, postmortemsApi } from '../lib/api'
+
+import { incidentsApi, postmortemsApi, settingsApi } from '../lib/api'
 import type { ActionItem, TeamMember } from '../lib/api'
 
 // Truncated text with read more toggle
@@ -85,12 +86,19 @@ export default function Postmortem() {
   const [showHistory, setShowHistory] = useState(false)
   const [slackSent, setSlackSent] = useState(false)
 const [slackError, setSlackError] = useState<string | null>(null)
+const [showSlackModal, setShowSlackModal] = useState(false)
+const [slackWebhookInput, setSlackWebhookInput] = useState('')
+
 
   const { data: incident, isLoading, isError } = useQuery({
     queryKey: ['incident', id],
     queryFn: () => incidentsApi.getOne(id!).then(res => res.data.data),
     enabled: !!id,
   })
+  const { data: settingsData, refetch: refetchSettings } = useQuery({
+  queryKey: ['settings'],
+  queryFn: () => settingsApi.get().then(res => res.data.data),
+})
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, string>) =>
@@ -121,9 +129,18 @@ const [slackError, setSlackError] = useState<string | null>(null)
   onSuccess: () => {
     setSlackSent(true)
     setSlackError(null)
+     setTimeout(() => setSlackSent(false), 3000)
   },
   onError: (error: any) => {
     setSlackError(error.response?.data?.error || 'Failed to send to Slack')
+  },
+})
+const saveSlackMutation = useMutation({
+  mutationFn: (webhookUrl: string) =>
+    settingsApi.update({ slackWebhook: webhookUrl }),
+  onSuccess: () => {
+    refetchSettings()
+    setShowSlackModal(false)
   },
 })
 
@@ -172,46 +189,106 @@ const [slackError, setSlackError] = useState<string | null>(null)
   return (
     <div className="p-8 max-w-4xl mx-auto w-full">
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-8">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Dashboard
-        </button>
-
-       <div className="no-print flex items-center gap-3">
-  {slackSent && (
-    <span className="text-xs text-green-600 font-medium">✓ Sent to Slack</span>
-  )}
-  {slackError && (
-    <span className="text-xs text-red-500">{slackError}</span>
-  )}
+      
+     {/* Top bar */}
+<div className="flex items-center justify-between mb-8">
   <button
-    onClick={() => slackMutation.mutate()}
-    disabled={slackMutation.isPending || slackSent}
-    className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-  >
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
-    </svg>
-    {slackMutation.isPending ? 'Sending...' : slackSent ? 'Sent' : 'Send to Slack'}
-  </button>
-  <button
-    onClick={() => window.print()}
-    className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+    onClick={() => navigate('/dashboard')}
+    className="no-print flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
   >
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
     </svg>
-    Export PDF
+    Back to Dashboard
   </button>
+
+  <div className="no-print flex items-center gap-3">
+    {slackSent && (
+      <span className="text-xs text-green-600 font-medium">✓ Sent to Slack</span>
+    )}
+    {slackError && (
+      <span className="text-xs text-red-500">{slackError}</span>
+    )}
+
+    {/* Configure Slack */}
+    <button
+      onClick={() => {
+        setSlackWebhookInput(settingsData?.slackWebhook || '')
+        setShowSlackModal(true)
+      }}
+      className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-2 rounded-lg transition-colors"
+    >
+      {settingsData?.slackWebhook ? '⚙ Slack Connected' : '+ Configure Slack'}
+    </button>
+
+    {/* Send to Slack */}
+    <button
+      onClick={() => slackMutation.mutate()}
+      disabled={slackMutation.isPending || slackSent || !settingsData?.slackWebhook}
+      title={!settingsData?.slackWebhook ? 'Configure Slack first' : ''}
+      className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+    >
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+      </svg>
+      {slackMutation.isPending ? 'Sending...' : slackSent ? 'Sent' : 'Send to Slack'}
+    </button>
+
+    {/* Export PDF */}
+    <button
+      onClick={() => window.print()}
+      className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      Export PDF
+    </button>
+  </div>
 </div>
+
+{/* Slack Modal */}
+{showSlackModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 no-print">
+    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+      <h2 className="text-sm font-semibold text-gray-900 mb-1">Configure Slack</h2>
+      <p className="text-xs text-gray-500 mb-4">
+        Paste your Slack webhook URL to enable notifications.
+        Get one from <a href="https://api.slack.com/apps" target="_blank" className="text-indigo-500 underline">api.slack.com/apps</a>
+      </p>
+      <input
+        type="text"
+        value={slackWebhookInput}
+        onChange={e => setSlackWebhookInput(e.target.value)}
+        placeholder="https://hooks.slack.com/services/..."
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+      />
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={() => setShowSlackModal(false)}
+          className="text-xs text-gray-500 px-3 py-1.5 rounded-md hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+        {settingsData?.slackWebhook && (
+          <button
+            onClick={() => saveSlackMutation.mutate('')}
+            className="text-xs text-red-500 px-3 py-1.5 rounded-md hover:bg-red-50"
+          >
+            Disconnect
+          </button>
+        )}
+        <button
+          onClick={() => saveSlackMutation.mutate(slackWebhookInput)}
+          disabled={!slackWebhookInput || saveSlackMutation.isPending}
+          className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {saveSlackMutation.isPending ? 'Saving...' : 'Save'}
+        </button>
       </div>
+    </div>
+  </div>
+)}
 
       {/* Title */}
       <div className="mb-6">

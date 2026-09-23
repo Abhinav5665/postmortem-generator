@@ -1,8 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import Dashboard from './pages/Dashboard'
 import NewIncident from './pages/NewIncident'
 import Postmortem from './pages/Postmortem'
+import Login from './pages/Login'
+import AcceptInvite from './pages/AcceptInvite'
+import Team from './pages/Team'
+import { authApi } from './lib/api'
+import type { User } from './lib/api'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,13 +18,20 @@ const queryClient = new QueryClient({
   },
 })
 
-function Sidebar() {
+function Sidebar({ user }: { user: User }) {
   const location = useLocation()
   const navigate = useNavigate()
+
+  async function handleLogout() {
+    await authApi.logout()
+    queryClient.clear()
+    navigate('/login')
+  }
 
   const links = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/incidents/new', label: 'New Incident' },
+    ...(user.role === 'ADMIN' ? [{ path: '/team', label: 'Team' }] : []),
   ]
 
   return (
@@ -53,20 +65,64 @@ function Sidebar() {
           </button>
         ))}
       </nav>
+
+      {/* User info + logout */}
+      <div className="px-4 py-4 border-t border-gray-200">
+        <div className="mb-3">
+          <p className="text-xs font-medium text-gray-900 truncate">{user.name}</p>
+          <p className="text-xs text-gray-400 truncate">{user.email}</p>
+          <span className={`text-xs px-1.5 py-0.5 rounded mt-1 inline-block ${
+            user.role === 'ADMIN'
+              ? 'bg-indigo-100 text-indigo-700'
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {user.role}
+          </span>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="w-full text-left text-xs text-gray-500 hover:text-red-500 transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
     </aside>
   )
 }
 
-function Layout() {
+function ProtectedLayout() {
+  const navigate = useNavigate()
+
+  const { data: user, isLoading, isError } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => authApi.me().then(res => res.data.data),
+    retry: false,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-400">Loading...</p>
+      </div>
+    )
+  }
+
+  if (isError || !user) {
+    return <Navigate to="/login" replace />
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar user={user} />
       <main className="flex-1 overflow-auto">
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/incidents/new" element={<NewIncident />} />
           <Route path="/incidents/:id" element={<Postmortem />} />
+          {user.role === 'ADMIN' && (
+            <Route path="/team" element={<Team />} />
+          )}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
     </div>
@@ -77,7 +133,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Layout />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/invite/accept" element={<AcceptInvite />} />
+          <Route path="/*" element={<ProtectedLayout />} />
+        </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   )

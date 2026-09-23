@@ -5,6 +5,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // ← add this
 })
 
 // Types
@@ -81,6 +82,12 @@ export interface CreateIncidentPayload {
   teamMembers?: TeamMember[]
 }
 
+export interface Settings {
+  id: string
+  slackWebhook: string | null
+  updatedAt: string
+}
+
 // API calls
 export const incidentsApi = {
   getAll: () => api.get<{ success: boolean; data: Incident[] }>('/incidents'),
@@ -111,4 +118,65 @@ export const postmortemsApi = {
     api.patch(`/postmortems/${id}/action-items/${index}`),
 }
 
+export const settingsApi = {
+  get: () => api.get<{ success: boolean; data: Settings | null }>('/settings'),
+  update: (data: { slackWebhook: string | null }) =>
+    api.patch<{ success: boolean; data: Settings }>('/settings', data),
+}
+
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  role: string
+  createdAt?: string
+}
+
+export const authApi = {
+  register: (data: { email: string; password: string; name: string }) =>
+    api.post<{ success: boolean; data: User }>('/auth/register', data),
+
+  login: (data: { email: string; password: string }) =>
+    api.post<{ success: boolean; data: User }>('/auth/login', data),
+
+  me: () =>
+    api.get<{ success: boolean; data: User }>('/auth/me'),
+
+  logout: () =>
+    api.post('/auth/logout'),
+}
+
+export const invitationsApi = {
+  send: (data: { email: string; role: string }) =>
+    api.post('/invitations', data),
+
+  list: () =>
+    api.get<{ success: boolean; data: any[] }>('/invitations'),
+
+  validate: (token: string) =>
+    api.get<{ success: boolean; data: { email: string; role: string } }>(
+      `/invitations/validate/${token}`
+    ),
+
+  accept: (token: string, data: { name: string; password: string }) =>
+    api.post<{ success: boolean; data: User }>(
+      `/invitations/accept/${token}`,
+      data
+    ),
+
+  cancel: (id: string) =>
+    api.delete(`/invitations/${id}`),
+}
+
+export const teamApi = {
+  list: () =>
+    api.get<{ success: boolean; data: User[] }>('/team'),
+
+  updateRole: (id: string, role: string) =>
+    api.patch(`/team/${id}/role`, { role }),
+
+  remove: (id: string) =>
+    api.delete(`/team/${id}`),
+}
 export default api
