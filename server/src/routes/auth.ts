@@ -18,6 +18,16 @@ const LoginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+// GET /api/auth/setup — check if first user needs to be created
+router.get('/setup', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userCount = await prisma.user.count()
+    res.json({ success: true, needsSetup: userCount === 0 })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check setup status' })
+  }
+})
+
 // POST /api/auth/register — first user only becomes admin
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -174,6 +184,16 @@ router.post('/logout', (req: Request, res: Response): void => {
     sameSite: 'lax',
   })
   res.json({ success: true, message: 'Logged out successfully' })
+})
+
+// GET /api/auth/setup — check if first user needs to be created
+router.get('/setup', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userCount = await prisma.user.count()
+    res.json({ success: true, needsSetup: userCount === 0 })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check setup status' })
+  }
 })
 
 export default router

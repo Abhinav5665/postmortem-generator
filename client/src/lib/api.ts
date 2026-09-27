@@ -8,6 +8,15 @@ const api = axios.create({
   withCredentials: true, // ← add this
 })
 
+const publicApi = axios.create({
+  baseURL: 'http://localhost:3001/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+
+
 // Types
 export interface Incident {
   id: string
@@ -134,6 +143,9 @@ export interface User {
 }
 
 export const authApi = {
+    checkSetup: () =>
+    publicApi.get<{ success: boolean; needsSetup: boolean }>('/auth/setup'),
+
   register: (data: { email: string; password: string; name: string }) =>
     api.post<{ success: boolean; data: User }>('/auth/register', data),
 
@@ -145,7 +157,9 @@ export const authApi = {
 
   logout: () =>
     api.post('/auth/logout'),
+
 }
+
 
 export const invitationsApi = {
   send: (data: { email: string; role: string }) =>

@@ -1,18 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '../lib/api'
 
 export default function Login() {
   const navigate = useNavigate()
+
+  
   const [isRegister, setIsRegister] = useState(false)
+  const [canRegister, setCanRegister] = useState(false)  // ← add this
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+   
 
   const [form, setForm] = useState({
     email: '',
     password: '',
     name: '',
   })
+
+   // If already logged in redirect to dashboard
+  useEffect(() => {
+  authApi.me()
+    .then(() => navigate('/dashboard'))
+    .catch(() => {
+      // Not logged in — check if setup needed
+      authApi.checkSetup()
+        .then(res => setCanRegister(res.data.needsSetup))
+        .catch(() => setCanRegister(false))
+    })
+}, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -26,6 +42,7 @@ export default function Login() {
       if (isRegister) {
         if (!form.name) {
           setError('Name is required')
+          setIsLoading(false)
           return
         }
         await authApi.register({
@@ -41,7 +58,14 @@ export default function Login() {
       }
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Something went wrong')
+      const message = err.response?.data?.error || 'Something went wrong'
+      // If registration is closed show a helpful message
+      if (message.includes('Registration is closed')) {
+        setError('Admin already exists. Ask your admin to send you an invitation.')
+        setIsRegister(false)
+      } else {
+        setError(message)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -53,7 +77,7 @@ export default function Login() {
 
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 bg-indigo-600 rounded-md flex items-center justify-center">
+          <div className="w-7 h-7 bg-indigo-600 rounded-md flex items-center justify-center">
             <span className="text-white text-xs font-bold">PM</span>
           </div>
           <div>
@@ -135,19 +159,21 @@ export default function Login() {
           </button>
         </div>
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => {
-              setIsRegister(prev => !prev)
-              setError(null)
-            }}
-            className="text-xs text-indigo-600 hover:text-indigo-800"
-          >
-            {isRegister
-              ? 'Already have an account? Sign in'
-              : 'First time? Create admin account'}
-          </button>
-        </div>
+        {canRegister && (
+  <div className="mt-6 text-center">
+    <button
+      onClick={() => {
+        setIsRegister(prev => !prev)
+        setError(null)
+      }}
+      className="text-xs text-indigo-600 hover:text-indigo-800"
+    >
+      {isRegister
+        ? 'Already have an account? Sign in'
+        : 'First time? Create admin account'}
+    </button>
+  </div>
+)}
       </div>
     </div>
   )
