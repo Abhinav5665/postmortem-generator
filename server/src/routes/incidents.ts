@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { ZodError } from 'zod'
 import { prisma } from '../lib/prisma'
+import { authMiddleware, AuthRequest } from '../middleware/authMiddleware'
 import * as logParserService from '../services/logParser'
 import * as timelineService from '../services/timelineBuilder'
 import severityScorer from '../services/severityScorer'
@@ -11,13 +12,13 @@ import * as slackService from '../services/slackService'
 import * as recurringDetector from '../services/recurringDetector'
 
 
-console.log('severityScorer module:', Object.keys(severityScorer))
+
 
 const router = Router()
 
 // GET /api/incidents — fetch all incidents
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-   console.log('GET /api/incidents hit')
+ 
   try {
     const incidents = await prisma.incident.findMany({
       orderBy: { createdAt: 'desc' },
@@ -70,7 +71,7 @@ router.post(
   '/',
   upload.single('logFile'),
   validateBody(IncidentSchema),
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const {
         serviceName,
@@ -144,6 +145,7 @@ router.post(
           status: 'OPEN',
           templateType: templateType || 'General',
           teamMembers: JSON.parse(JSON.stringify(teamMembersList)),
+           createdByName: req.user?.name || 'Unknown',  
           postmortem: {
             create: {
               summary: postmortemResult.summary,

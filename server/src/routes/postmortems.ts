@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { validateBody, UpdatePostmortemSchema } from '../middleware/validate'
+import { authMiddleware, AuthRequest } from '../middleware/authMiddleware'
 
 const router = Router()
 
@@ -39,7 +40,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.patch(
   '/:id',
   validateBody(UpdatePostmortemSchema),
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const existing = await prisma.postmortem.findUnique({
         where: { id: String(req.params.id) },
@@ -69,6 +70,7 @@ router.patch(
           field: key,
           oldValue: String(existing[key as keyof typeof existing] ?? ''),
           newValue: String(req.body[key] ?? ''),
+           editedByName: req.user?.name || 'Unknown',
           editedAt: new Date().toISOString(),
         }))
 
@@ -81,6 +83,7 @@ router.patch(
             field: 'actionItems',
             oldValue: oldActionItems,
             newValue: newActionItems,
+            editedByName: req.user?.name || 'Unknown',
             editedAt: new Date().toISOString(),
           })
         }
@@ -114,7 +117,8 @@ router.patch(
 // PATCH /api/postmortems/:id/action-items/:index — toggle action item completed
 router.patch(
   '/:id/action-items/:index',
-  async (req: Request, res: Response): Promise<void> => {
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const postmortem = await prisma.postmortem.findUnique({
         where: { id: String(req.params.id) },

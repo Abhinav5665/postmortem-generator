@@ -24,6 +24,7 @@ model Incident {
 
   createdAt        DateTime    @default(now())
   postmortem       Postmortem?
+  createdByName   String?
 }
 
 model Postmortem {

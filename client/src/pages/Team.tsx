@@ -60,12 +60,12 @@ export default function Team() {
     (inv: any) => !inv.acceptedAt && new Date(inv.expiresAt) > new Date()
   )
 
-  return (
-    <div className="p-8 max-w-4xl mx-auto w-full">
+ return (
+    <div className="p-8 max-w-4xl mx-auto w-full bg-slate-50 min-h-screen">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Team</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Team</h1>
+          <p className="text-sm text-slate-500 mt-1">
             Manage team members and invitations
           </p>
         </div>
@@ -74,7 +74,7 @@ export default function Team() {
             setShowInviteForm(true)
             setInviteError(null)
           }}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-teal-100 active:scale-95"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -85,15 +85,15 @@ export default function Team() {
 
       {/* Success message */}
       {inviteSuccess && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6">
-          <p className="text-sm text-green-600">{inviteSuccess}</p>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-6">
+          <p className="text-sm font-medium text-emerald-700">{inviteSuccess}</p>
         </div>
       )}
 
       {/* Invite Form */}
       {showInviteForm && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-700 mb-4">
             Invite Team Member
           </h2>
           <div className="flex gap-3">
@@ -102,12 +102,12 @@ export default function Team() {
               value={inviteForm.email}
               onChange={e => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
               placeholder="colleague@company.com"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
             />
             <select
               value={inviteForm.role}
               onChange={e => setInviteForm(prev => ({ ...prev, role: e.target.value }))}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 cursor-pointer"
             >
               <option value="MEMBER">Member</option>
               <option value="ADMIN">Admin</option>
@@ -115,52 +115,52 @@ export default function Team() {
             <button
               onClick={() => inviteMutation.mutate()}
               disabled={!inviteForm.email || inviteMutation.isPending}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 disabled:from-teal-300 disabled:to-cyan-300 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-sm active:scale-95"
             >
-              {inviteMutation.isPending ? 'Sending...' : 'Send Invite'}
+              {inviteMutation.isPending ? "Sending..." : "Send Invite"}
             </button>
             <button
               onClick={() => setShowInviteForm(false)}
-              className="text-sm text-gray-500 px-3 py-2 rounded-lg hover:bg-gray-100"
+              className="text-sm font-medium text-slate-500 px-3 py-2 rounded-xl hover:bg-slate-100 transition-colors"
             >
               Cancel
             </button>
           </div>
           {inviteError && (
-            <p className="text-xs text-red-500 mt-2">{inviteError}</p>
+            <p className="text-xs font-medium text-red-500 mt-2">{inviteError}</p>
           )}
         </div>
       )}
 
       {/* Team Members */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-700">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-6 shadow-sm">
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+          <h2 className="text-sm font-semibold text-slate-700">
             Members ({members?.length || 0})
           </h2>
         </div>
         {loadingMembers ? (
           <div className="p-8 text-center">
-            <p className="text-sm text-gray-400">Loading members...</p>
+            <p className="text-sm text-slate-400">Loading members...</p>
           </div>
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Name</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Email</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Role</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Actions</th>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Name</th>
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Email</th>
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Role</th>
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {members?.map((member: any) => (
-                <tr key={member.id} className="hover:bg-gray-50">
+                <tr key={member.id} className="hover:bg-teal-50/40 transition-colors">
                   <td className="px-5 py-3">
-                    <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                    <p className="text-sm font-medium text-slate-900">{member.name}</p>
                   </td>
                   <td className="px-5 py-3">
-                    <p className="text-sm text-gray-500">{member.email}</p>
+                    <p className="text-sm text-slate-500">{member.email}</p>
                   </td>
                   <td className="px-5 py-3">
                     <select
@@ -169,7 +169,7 @@ export default function Team() {
                         id: member.id,
                         role: e.target.value,
                       })}
-                      className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="text-xs font-medium border border-slate-200 bg-white rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
                     >
                       <option value="ADMIN">Admin</option>
                       <option value="MEMBER">Member</option>
@@ -178,7 +178,7 @@ export default function Team() {
                   <td className="px-5 py-3">
                     <button
                       onClick={() => removeMutation.mutate(member.id)}
-                      className="text-xs text-red-500 hover:text-red-700"
+                      className="text-xs font-medium text-red-500 hover:text-white hover:bg-red-500 border border-red-100 bg-red-50 px-2.5 py-1 rounded-full transition-all"
                     >
                       Remove
                     </button>
@@ -192,41 +192,41 @@ export default function Team() {
 
       {/* Pending Invitations */}
       {pendingInvitations && pendingInvitations.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-700">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+            <h2 className="text-sm font-semibold text-slate-700">
               Pending Invitations ({pendingInvitations.length})
             </h2>
           </div>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Email</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Role</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Expires</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-5 py-3">Actions</th>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Email</th>
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Role</th>
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Expires</th>
+                <th className="text-left text-xs font-semibold tracking-widest text-slate-500 uppercase px-5 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {pendingInvitations.map((inv: any) => (
-                <tr key={inv.id} className="hover:bg-gray-50">
+                <tr key={inv.id} className="hover:bg-teal-50/40 transition-colors">
                   <td className="px-5 py-3">
-                    <p className="text-sm text-gray-900">{inv.email}</p>
+                    <p className="text-sm font-medium text-slate-900">{inv.email}</p>
                   </td>
                   <td className="px-5 py-3">
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    <span className="text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-full">
                       {inv.role}
                     </span>
                   </td>
                   <td className="px-5 py-3">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500">
                       {new Date(inv.expiresAt).toLocaleDateString()}
                     </p>
                   </td>
                   <td className="px-5 py-3">
                     <button
                       onClick={() => cancelInviteMutation.mutate(inv.id)}
-                      className="text-xs text-red-500 hover:text-red-700"
+                      className="text-xs font-medium text-red-500 hover:text-white hover:bg-red-500 border border-red-100 bg-red-50 px-2.5 py-1 rounded-full transition-all"
                     >
                       Cancel
                     </button>

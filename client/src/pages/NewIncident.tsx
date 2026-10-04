@@ -112,20 +112,20 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
     }
   }
 
-  return (
-    <div className="p-8 w-full">
+ return (
+    <div className="p-8 w-full bg-slate-50 min-h-screen">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Create New Incident</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Provide the details and we'll generate a complete postmortem for you
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create New Incident</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Provide the details and we\'ll generate a complete postmortem for you
         </p>
       </div>
 
       <div className="space-y-6">
         {/* Service Name */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
             Service Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -134,24 +134,24 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
             value={form.serviceName}
             onChange={handleChange}
             placeholder="e.g. Payment Service"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
           />
         </div>
 
        {/* Template Type */}
 <div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
+  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
     Incident Type
   </label>
   <div className="grid grid-cols-3 gap-2 mb-2">
-    {['General', 'Deployment', 'Database', 'Security', 'Performance', 'Infrastructure'].map(type => (
+    {["General", "Deployment", "Database", "Security", "Performance", "Infrastructure"].map(type => (
       <button
         key={type}
         onClick={() => setForm(prev => ({ ...prev, templateType: type }))}
-        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+        className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
           form.templateType === type
-            ? 'bg-indigo-600 text-white border-indigo-600'
-            : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'
+            ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white border-teal-600 shadow-md shadow-teal-100"
+            : "bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:bg-teal-50"
         }`}
       >
         {type}
@@ -163,98 +163,98 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
     value={form.templateType}
     onChange={e => setForm(prev => ({ ...prev, templateType: e.target.value }))}
     placeholder="Or type a custom incident type..."
-    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
   />
 </div>
 
        {/* Times */}
 <div className="grid grid-cols-2 gap-4">
   <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">
+    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
       Incident Start Time <span className="text-red-500">*</span>
     </label>
     <div className="grid grid-cols-2 gap-2">
       <input
         type="date"
         name="startDate"
-        value={form.startTime.split('T')[0] || ''}
+        value={form.startTime.split("T")[0] || ""}
         onChange={e => setForm(prev => ({
           ...prev,
-          startTime: `${e.target.value}T${prev.startTime.split('T')[1] || '00:00'}`
+          startTime: `${e.target.value}T${prev.startTime.split("T")[1] || "00:00"}`
         }))}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
       />
       <input
         type="time"
         name="startTimeOnly"
-        value={form.startTime.split('T')[1] || ''}
+        value={form.startTime.split("T")[1] || ""}
         onChange={e => setForm(prev => ({
           ...prev,
-          startTime: `${prev.startTime.split('T')[0] || ''}T${e.target.value}`
+          startTime: `${prev.startTime.split("T")[0] || ""}T${e.target.value}`
         }))}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
       />
     </div>
   </div>
   <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">
+    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
       Incident End Time <span className="text-red-500">*</span>
     </label>
     <div className="grid grid-cols-2 gap-2">
       <input
         type="date"
         name="endDate"
-        value={form.endTime.split('T')[0] || ''}
+        value={form.endTime.split("T")[0] || ""}
         onChange={e => setForm(prev => ({
           ...prev,
-          endTime: `${e.target.value}T${prev.endTime.split('T')[1] || '00:00'}`
+          endTime: `${e.target.value}T${prev.endTime.split("T")[1] || "00:00"}`
         }))}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
       />
       <input
         type="time"
         name="endTimeOnly"
-        value={form.endTime.split('T')[1] || ''}
+        value={form.endTime.split("T")[1] || ""}
         onChange={e => setForm(prev => ({
           ...prev,
-          endTime: `${prev.endTime.split('T')[0] || ''}T${e.target.value}`
+          endTime: `${prev.endTime.split("T")[0] || ""}T${e.target.value}`
         }))}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
       />
     </div>
   </div>
 </div>
         {/* Raw Logs */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
             Raw Logs <span className="text-red-500">*</span>
           </label>
 
           {/* Toggle */}
-          <div className="flex gap-1 mb-2 border border-gray-200 rounded-lg p-1 w-fit">
+          <div className="flex gap-1 mb-2 border border-slate-200 rounded-xl p-1 w-fit bg-slate-50">
             <button
-              onClick={() => setLogInputType('paste')}
-              className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
-                logInputType === 'paste'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-500 hover:text-gray-700'
+              onClick={() => setLogInputType("paste")}
+              className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
+                logInputType === "paste"
+                  ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
               Paste Logs
             </button>
             <button
-              onClick={() => setLogInputType('file')}
-              className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
-                logInputType === 'file'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-500 hover:text-gray-700'
+              onClick={() => setLogInputType("file")}
+              className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
+                logInputType === "file"
+                  ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
               Upload File
             </button>
           </div>
 
-          {logInputType === 'paste' ? (
+          {logInputType === "paste" ? (
             <textarea
               name="rawLogs"
               value={form.rawLogs}
@@ -265,7 +265,6 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
     return {
       ...prev,
       rawLogs: logs,
-      // Only auto-fill if start time is empty
       startTime: !prev.startTime && detected ? detected : prev.startTime,
     }
   })
@@ -273,10 +272,10 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
           
               rows={8}
               placeholder="Paste your raw log output here..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-950 text-green-400 placeholder-gray-600"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 bg-slate-900 text-green-400 placeholder-slate-600 transition-all"
             />
           ) : (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center bg-white hover:border-teal-300 hover:bg-teal-50/30 transition-colors">
               <input
                 type="file"
                 accept=".log,.txt"
@@ -285,15 +284,15 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
                 id="logFile"
               />
               <label htmlFor="logFile" className="cursor-pointer">
-                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 {logFile ? (
-                  <p className="text-sm text-indigo-600 font-medium">{logFile.name}</p>
+                  <p className="text-sm text-teal-700 font-semibold">{logFile.name}</p>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-600">Click to upload a log file</p>
-                    <p className="text-xs text-gray-400 mt-1">.log or .txt files only, max 5MB</p>
+                    <p className="text-sm text-slate-600">Click to upload a log file</p>
+                    <p className="text-xs text-slate-400 mt-1">.log or .txt files only, max 5MB</p>
                   </>
                 )}
               </label>
@@ -303,7 +302,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
 
         {/* Engineer Notes */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
             Engineer Notes <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -312,13 +311,13 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
             onChange={handleChange}
             rows={4}
             placeholder="What did you observe? What were the symptoms? Any relevant context..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
           />
         </div>
 
        {/* Team Members */}
-<div className="border border-gray-200 rounded-xl p-5 space-y-4">
-  <h2 className="text-sm font-semibold text-gray-700">Team Members</h2>
+<div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-white shadow-sm">
+  <h2 className="text-sm font-semibold text-slate-800">Team Members</h2>
 
   <div className="space-y-3">
     {teamMembers.map((member, index) => (
@@ -326,14 +325,14 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         <input
           type="text"
           value={member.name}
-          onChange={e => updateTeamMember(index, 'name', e.target.value)}
+          onChange={e => updateTeamMember(index, "name", e.target.value)}
           placeholder="Name"
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
         />
         <select
           value={member.role}
-          onChange={e => updateTeamMember(index, 'role', e.target.value)}
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          onChange={e => updateTeamMember(index, "role", e.target.value)}
+          className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all cursor-pointer"
         >
           <option value="">Select role</option>
           <option value="On-call Engineer">On-call Engineer</option>
@@ -349,7 +348,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         {teamMembers.length > 1 && (
           <button
             onClick={() => removeTeamMember(index)}
-            className="text-gray-400 hover:text-red-500 transition-colors"
+            className="text-slate-400 hover:text-red-500 transition-colors p-1"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -362,7 +361,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
 
   <button
     onClick={addTeamMember}
-    className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+    className="text-sm font-semibold text-teal-700 hover:text-white hover:bg-teal-600 flex items-center gap-1 bg-teal-50 hover:bg-teal-600 px-3 py-1.5 rounded-full border border-teal-100 transition-all"
   >
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -373,8 +372,8 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+            <p className="text-sm font-medium text-red-600">{error}</p>
           </div>
         )}
 
@@ -382,7 +381,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         <button
           onClick={handleSubmit}
           disabled={isLoading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-3 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 disabled:from-teal-300 disabled:to-cyan-300 text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md shadow-teal-100 active:scale-95 flex items-center justify-center gap-2"
         >
           {isLoading ? (
             <>
@@ -393,12 +392,12 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
               Generating Postmortem...
             </>
           ) : (
-            'Generate Postmortem'
+            "Generate Postmortem"
           )}
         </button>
 
         {isLoading && (
-          <p className="text-center text-xs text-gray-400">
+          <p className="text-center text-xs text-slate-400">
             This usually takes 10–15 seconds
           </p>
         )}

@@ -30,6 +30,7 @@ export interface Incident {
   rawLogs?: string
   engineerNotes?: string
   postmortem?: Postmortem
+  createdByName?: string
 }
 
 export interface TimelineEvent {
@@ -71,6 +72,7 @@ export interface Postmortem {
     field: string
     oldValue: string
       newValue: string
+       editedByName: string
     editedAt: string
   }[] | null
   isEdited: boolean

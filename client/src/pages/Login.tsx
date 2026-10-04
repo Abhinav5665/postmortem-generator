@@ -71,34 +71,34 @@ export default function Login() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white border border-gray-200 rounded-xl p-8 w-full max-w-sm">
+ return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-8 w-full max-w-sm shadow-sm">
 
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-7 h-7 bg-indigo-600 rounded-md flex items-center justify-center">
+          <div className="w-7 h-7 bg-gradient-to-br from-teal-600 to-cyan-600 rounded-xl flex items-center justify-center shadow-md shadow-teal-100">
             <span className="text-white text-xs font-bold">PM</span>
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-900">PostmortemAI</p>
-            <p className="text-xs text-gray-400">From outages to insights</p>
+            <p className="text-sm font-semibold text-slate-900">PostmortemAI</p>
+            <p className="text-xs text-slate-400">From outages to insights</p>
           </div>
         </div>
 
-        <h1 className="text-lg font-bold text-gray-900 mb-1">
-          {isRegister ? 'Create admin account' : 'Sign in'}
+        <h1 className="text-lg font-bold text-slate-900 tracking-tight mb-1">
+          {isRegister ? "Create admin account" : "Sign in"}
         </h1>
-        <p className="text-xs text-gray-500 mb-6">
+        <p className="text-xs text-slate-500 mb-6">
           {isRegister
-            ? 'First account becomes the admin'
-            : 'Enter your credentials to continue'}
+            ? "First account becomes the admin"
+            : "Enter your credentials to continue"}
         </p>
 
         <div className="space-y-4">
           {isRegister && (
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Full Name
               </label>
               <input
@@ -107,13 +107,13 @@ export default function Login() {
                 value={form.name}
                 onChange={handleChange}
                 placeholder="Abhinav"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-slate-700 mb-1.5">
               Email
             </label>
             <input
@@ -122,12 +122,12 @@ export default function Login() {
               value={form.email}
               onChange={handleChange}
               placeholder="you@company.com"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-slate-700 mb-1.5">
               Password
             </label>
             <input
@@ -136,26 +136,26 @@ export default function Login() {
               value={form.password}
               onChange={handleChange}
               placeholder="••••••••"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-xs text-red-600">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <p className="text-xs font-medium text-red-600">{error}</p>
             </div>
           )}
 
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+            className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 disabled:from-teal-300 disabled:to-cyan-300 text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md shadow-teal-100 active:scale-95"
           >
             {isLoading
-              ? 'Please wait...'
+              ? "Please wait..."
               : isRegister
-              ? 'Create Account'
-              : 'Sign In'}
+              ? "Create Account"
+              : "Sign In"}
           </button>
         </div>
 
@@ -166,11 +166,11 @@ export default function Login() {
         setIsRegister(prev => !prev)
         setError(null)
       }}
-      className="text-xs text-indigo-600 hover:text-indigo-800"
+      className="text-xs font-semibold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-full transition-colors"
     >
       {isRegister
-        ? 'Already have an account? Sign in'
-        : 'First time? Create admin account'}
+        ? "Already have an account? Sign in"
+        : "First time? Create admin account"}
     </button>
   </div>
 )}
