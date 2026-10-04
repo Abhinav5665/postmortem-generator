@@ -18,6 +18,14 @@ export async function sendInvitationEmail(
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
   const inviteUrl = `${frontendUrl}/invite/accept?token=${inviteToken}`
 
+  console.log('Sending invite email to:', email)
+  console.log('Invite URL:', inviteUrl)
+  console.log('SMTP config:', {
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    user: process.env.SMTP_USER,
+  })
+
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to: email,
@@ -53,4 +61,12 @@ export async function sendInvitationEmail(
       </div>
     `,
   })
+
+  transporter.verify((error, success) => {
+  if (error) {
+    console.error('SMTP connection error:', error)
+  } else {
+    console.log('SMTP server ready')
+  }
+})
 }
