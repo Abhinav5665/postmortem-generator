@@ -10,6 +10,7 @@ import { upload } from '../middleware/upload'
 import { validateBody, IncidentSchema } from '../middleware/validate'
 import * as slackService from '../services/slackService'
 import * as recurringDetector from '../services/recurringDetector'
+import type { SeverityResult } from '../services/severityScorer'
 
 
 
@@ -35,6 +36,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
             id: true,
             generatedAt: true,
               recurringAlert: true,
+              severity: true,
+severityOverridden: true,
           },
         },
       },
@@ -81,6 +84,11 @@ router.post(
         rawLogs,
         teamMembers,
          templateType,
+         severityOverride,
+  affectedUsers,
+  serviceUnavailable,
+  confirmedCompromise,
+  dataBreach,
       } = req.body
 
       // If file uploaded, use file contents — otherwise use pasted logs
@@ -111,14 +119,40 @@ router.post(
       const durationMinutes = severityScorer.getDurationMinutes(start, end)
       const parsedLogs = logParserService.parseLogs(logsText)
       const timeline = timelineService.buildTimeline(parsedLogs.logs, start, end)
-      const severityResult = severityScorer.scoreSeverity(
-  durationMinutes,
-  parsedLogs.fatalCount,
-  parsedLogs.errorCount,
-  parsedLogs.warnCount,
-  parsedLogs.totalLines
+      // Multipart form values arrive as strings
+// Multipart form values arrive as strings
+const toBool = (v: unknown) => v === true || v === 'true'
+
+const MAX_AFFECTED_USERS = 10_000_000
+const parsedAffectedUsers = Math.min(
+  MAX_AFFECTED_USERS,
+  Math.max(0, parseInt(String(affectedUsers ?? ''), 10) || 0)
 )
 
+// Only P0 / P1 / P2 are valid overrides
+if (severityOverride && !['P0', 'P1', 'P2'].includes(severityOverride)) {
+  res.status(400).json({ error: 'severityOverride must be P0, P1 or P2' })
+  return
+}
+
+const detected = severityScorer.scoreSeverity({
+  durationMinutes,
+  fatalCount: parsedLogs.fatalCount,
+  errorCount: parsedLogs.errorCount,
+  affectedUsers: parsedAffectedUsers,
+  serviceUnavailable: toBool(serviceUnavailable),
+  confirmedCompromise: toBool(confirmedCompromise),
+  dataBreach: toBool(dataBreach),
+})
+
+// Final result is what Gemini, the Incident and the Postmortem all see
+const severityResult: SeverityResult = severityOverride
+  ? {
+      level: severityOverride,
+      score: detected.score,
+      reasoning: `Set manually by engineer (auto-detected: ${detected.level}. ${detected.reasoning})`,
+    }
+  : detected
       // Generate postmortem with Gemini
       const postmortemResult = await aiService.generatePostmortem(
         serviceName,
@@ -157,6 +191,8 @@ router.post(
               wentWell: postmortemResult.wentWell,
               actionItems: postmortemResult.actionItems,
               severity: severityResult.level,
+detectedSeverity: detected.level,
+severityOverridden: !!severityOverride,
             },
           },
         },

@@ -7,8 +7,22 @@ export const IncidentSchema = z.object({
   endTime: z.iso.datetime({ error: 'End time must be a valid ISO date' }),
   engineerNotes: z.string().min(1, 'Engineer notes are required'),
   rawLogs: z.string().optional(),
-  teamMembers: z.string().optional(), 
+  teamMembers: z.string().optional(),
   templateType: z.string().optional(),
+
+  // Severity override: '' means "Auto" (use detected severity)
+  severityOverride: z.union([z.enum(['P0', 'P1', 'P2']), z.literal('')]).optional(),
+
+  // Impact signals. Multipart forms send strings, so accept both strings and real types
+  affectedUsers: z
+  .union([
+    z.string().regex(/^\d{0,8}$/, 'Affected users must be a whole number'),
+    z.number().int().nonnegative().max(10_000_000),
+  ])
+  .optional(),
+  serviceUnavailable: z.union([z.boolean(), z.enum(['true', 'false'])]).optional(),
+  confirmedCompromise: z.union([z.boolean(), z.enum(['true', 'false'])]).optional(),
+  dataBreach: z.union([z.boolean(), z.enum(['true', 'false'])]).optional(),
 })
 
 export const UpdatePostmortemSchema = z.object({

@@ -35,6 +35,12 @@ export default function NewIncident() {
     incidentCommander: '',
     participants: '',
     templateType: 'General',
+
+      severityOverride: '',          // '' = Auto
+  affectedUsers: '',
+  serviceUnavailable: false,
+  confirmedCompromise: false,
+  dataBreach: false,
   })
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
@@ -56,6 +62,12 @@ function updateTeamMember(index: number, field: 'name' | 'role', value: string) 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
+  const MAX_AFFECTED_USERS = 10_000_000
+  function handleAffectedUsersChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
+  const clamped = digits ? String(Math.min(Number(digits), MAX_AFFECTED_USERS)) : ''
+  setForm(prev => ({ ...prev, affectedUsers: clamped }))
+}
 
   async function handleSubmit() {
     setError(null)
@@ -76,6 +88,8 @@ function updateTeamMember(index: number, field: 'name' | 'role', value: string) 
       return
     }
 
+    
+
     setIsLoading(true)
 
     try {
@@ -85,6 +99,15 @@ function updateTeamMember(index: number, field: 'name' | 'role', value: string) 
 formData.append('endTime', new Date(form.endTime + ':00Z').toISOString())
       formData.append('engineerNotes', form.engineerNotes)
       formData.append('templateType', form.templateType)
+      if (form.severityOverride) {
+  formData.append('severityOverride', form.severityOverride)
+}
+if (form.affectedUsers) {
+  formData.append('affectedUsers', form.affectedUsers)
+}
+if (form.serviceUnavailable) formData.append('serviceUnavailable', 'true')
+if (form.confirmedCompromise) formData.append('confirmedCompromise', 'true')
+if (form.dataBreach) formData.append('dataBreach', 'true')
 
       const validTeamMembers = teamMembers.filter(m => m.name && m.role)
 if (validTeamMembers.length > 0) {
@@ -118,7 +141,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create New Incident</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Provide the details and we\'ll generate a complete postmortem for you
+        Provide the details and we&apos;ll generate a complete postmortem for you
         </p>
       </div>
 
@@ -146,6 +169,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
   <div className="grid grid-cols-3 gap-2 mb-2">
     {["General", "Deployment", "Database", "Security", "Performance", "Infrastructure"].map(type => (
       <button
+      type="button"
         key={type}
         onClick={() => setForm(prev => ({ ...prev, templateType: type }))}
         className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
@@ -233,6 +257,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
           {/* Toggle */}
           <div className="flex gap-1 mb-2 border border-slate-200 rounded-xl p-1 w-fit bg-slate-50">
             <button
+              type="button"
               onClick={() => setLogInputType("paste")}
               className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
                 logInputType === "paste"
@@ -243,6 +268,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
               Paste Logs
             </button>
             <button
+              type="button"
               onClick={() => setLogInputType("file")}
               className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
                 logInputType === "file"
@@ -347,6 +373,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         </select>
         {teamMembers.length > 1 && (
           <button
+          type="button"
             onClick={() => removeTeamMember(index)}
             className="text-slate-400 hover:text-red-500 transition-colors p-1"
           >
@@ -360,6 +387,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
   </div>
 
   <button
+  type="button"
     onClick={addTeamMember}
     className="text-sm font-semibold text-teal-700 hover:text-white hover:bg-teal-600 flex items-center gap-1 bg-teal-50 hover:bg-teal-600 px-3 py-1.5 rounded-full border border-teal-100 transition-all"
   >
@@ -370,6 +398,81 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
   </button>
 </div>
 
+
+
+{/* Impact & Severity */}
+<div className="border border-slate-200 rounded-2xl p-5 space-y-5 bg-white shadow-sm">
+  <div>
+    <h2 className="text-sm font-semibold text-slate-800">Impact &amp; Severity</h2>
+    <p className="text-xs text-slate-500 mt-0.5">
+      Optional. These help the system score severity more accurately.
+    </p>
+  </div>
+
+  {/* Affected users */}
+  <div>
+    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+      Affected Users
+    </label>
+    <input
+  type="text"
+  inputMode="numeric"
+  name="affectedUsers"
+  value={form.affectedUsers}
+  onChange={handleAffectedUsersChange}
+  placeholder="e.g. 250 (leave blank if unknown)"
+  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
+/>
+  </div>
+
+  {/* Impact checkboxes */}
+  <div className="space-y-2">
+    {([
+      ['serviceUnavailable', 'Service was fully unavailable'],
+      ['confirmedCompromise', 'Confirmed security compromise'],
+      ['dataBreach', 'Confirmed data breach'],
+    ] as const).map(([key, label]) => (
+      <label key={key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={form[key]}
+          onChange={e => setForm(prev => ({ ...prev, [key]: e.target.checked }))}
+          className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-200"
+        />
+        {label}
+      </label>
+    ))}
+  </div>
+
+  {/* Severity override */}
+  <div>
+    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+      Severity Override
+      <span className="text-slate-400 font-normal ml-1">
+        (optional, Auto uses detected severity)
+      </span>
+    </label>
+    <div className="flex gap-2">
+      {['', 'P0', 'P1', 'P2'].map(sev => (
+        <button
+          key={sev || 'auto'}
+          type="button"
+          onClick={() => setForm(prev => ({ ...prev, severityOverride: sev }))}
+          className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
+            form.severityOverride === sev
+              ? sev === 'P0' ? 'bg-red-600 text-white border-red-600'
+              : sev === 'P1' ? 'bg-orange-500 text-white border-orange-500'
+              : sev === 'P2' ? 'bg-yellow-500 text-white border-yellow-500'
+              : 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white border-teal-600'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:bg-teal-50'
+          }`}
+        >
+          {sev === '' ? 'Auto' : sev}
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
         {/* Error */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-3">
@@ -379,6 +482,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
 
         {/* Submit */}
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={isLoading}
           className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 disabled:from-teal-300 disabled:to-cyan-300 text-white font-semibold py-3 rounded-xl text-sm transition-all shadow-md shadow-teal-100 active:scale-95 flex items-center justify-center gap-2"

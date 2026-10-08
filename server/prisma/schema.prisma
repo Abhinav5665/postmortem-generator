@@ -15,6 +15,8 @@ model Incident {
   rawLogs          String      @db.Text
   engineerNotes    String      @db.Text
   severity         String
+    detectedSeverity   String?                  // what the scorer calculated
+  severityOverridden Boolean   @default(false)
   status           String      @default("OPEN")
 
   templateType    String  @default("General")
