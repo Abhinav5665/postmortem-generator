@@ -165,7 +165,20 @@ const severityResult: SeverityResult = severityOverride
         severityResult,
         teamMembersList,
         templateType || 'General',
+        {
+  affectedUsers: parsedAffectedUsers,
+  serviceUnavailable: toBool(serviceUnavailable),
+  confirmedCompromise: toBool(confirmedCompromise),
+  dataBreach: toBool(dataBreach),
+},
       )
+
+      const impactMetrics = {
+  ...postmortemResult.impactMetrics,
+  ...(parsedAffectedUsers > 0 && {
+    affectedUsers: parsedAffectedUsers.toLocaleString('en-US'),
+  }),
+}
 
       // Save incident and postmortem to DB in one transaction
       const incident = await prisma.incident.create({
@@ -186,7 +199,7 @@ const severityResult: SeverityResult = severityOverride
               timeline: JSON.parse(JSON.stringify(timeline)),
               rootCause: postmortemResult.rootCause,
               impact: postmortemResult.impact,
-              impactMetrics: postmortemResult.impactMetrics,
+              impactMetrics: impactMetrics,
               resolution: postmortemResult.resolution,
               wentWell: postmortemResult.wentWell,
               actionItems: postmortemResult.actionItems,

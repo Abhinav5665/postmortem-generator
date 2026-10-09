@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { differenceInMinutes } from 'date-fns'
 
 import { incidentsApi, postmortemsApi, settingsApi } from '../lib/api'
-import type { ActionItem, TeamMember } from '../lib/api'
+
+import type { ActionItem, TeamMember, UpdatePostmortemPayload } from '../lib/api'
 
 // Truncated text with read more toggle
 function ExpandableText({ text }: { text: string }) {
@@ -73,6 +74,15 @@ function getDuration(startTime: string, endTime: string): string {
   return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`
 }
 
+function formatUtc(value: string | null | undefined, part: 'time' | 'datetime'): string {
+  if (!value) return 'Unknown'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return 'Unknown'
+  const iso = d.toISOString()
+  return part === 'time'
+    ? `${iso.substring(11, 16)} UTC`
+    : `${iso.substring(0, 16).replace('T', ' ')} UTC`
+}
 export default function Postmortem() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -101,7 +111,7 @@ const [slackWebhookInput, setSlackWebhookInput] = useState('')
 })
 
   const updateMutation = useMutation({
-    mutationFn: (data: Record<string, string>) =>
+    mutationFn: (data: UpdatePostmortemPayload) =>
       postmortemsApi.update(incident!.postmortem!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incident', id] })
@@ -149,13 +159,15 @@ const saveSlackMutation = useMutation({
     setEditValues(prev => ({ ...prev, [field]: currentValue }))
   }
 
-  function saveEdit(field: string) {
-    updateMutation.mutate({ [field]: editValues[field] })
-  }
+// saveEdit: field is a plain string, so cast to the payload type
+function saveEdit(field: string) {
+  updateMutation.mutate({ [field]: editValues[field] } as UpdatePostmortemPayload)
+}
 
-  function cancelEdit() {
-    setEditingField(null)
-  }
+ function cancelEdit() {
+  setEditingField(null)
+  updateMutation.reset()
+}
 
  if (isLoading) {
     return (
@@ -257,7 +269,7 @@ const saveSlackMutation = useMutation({
       <h2 className="text-sm font-semibold text-slate-900 mb-1">Configure Slack</h2>
       <p className="text-xs text-slate-500 mb-4">
         Paste your Slack webhook URL to enable notifications.
-        Get one from <a href="https://api.slack.com/apps" target="_blank" className="text-teal-600 underline">api.slack.com/apps</a>
+        Get one from<a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-teal-600 underline">api.slack.com/apps</a>
       </p>
       <input
         type="text"
@@ -300,13 +312,19 @@ const saveSlackMutation = useMutation({
             Postmortem — {incident.serviceName}
           </h1>
           <SeverityBadge severity={incident.severity as "P0" | "P1" | "P2"} />
-          {postmortem.isEdited && (
-            <span className="text-xs text-slate-400 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">edited</span>
-          )}
+{incident.severityOverridden && (
+  <span
+    title={incident.detectedSeverity ? `System auto-detected ${incident.detectedSeverity}` : "Severity set manually"}
+    className="text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full"
+  >
+    overridden{incident.detectedSeverity ? ` · auto: ${incident.detectedSeverity}` : ""}
+  </span>
+)}
         </div>
+        
         <div className="flex items-center gap-4 text-sm text-slate-500 flex-wrap">
           <span>
-            {new Date(incident.startTime).toISOString().substring(0, 10)} · {new Date(incident.startTime).toISOString().substring(11, 16)} — {new Date(incident.endTime).toISOString().substring(11, 16)} UTC
+            {formatUtc(incident.startTime, 'datetime')} · {formatUtc(incident.endTime, 'datetime')}
           </span>
           <span>Duration: {getDuration(incident.startTime, incident.endTime)}</span>
           {incident.createdByName && (
@@ -318,7 +336,8 @@ const saveSlackMutation = useMutation({
             onClick={() => statusMutation.mutate(
               incident.status === "OPEN" ? "RESOLVED" : "OPEN"
             )}
-            className={`no-print px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+            disabled={statusMutation.isPending}
+       className={`no-print px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors disabled:opacity-60 ${
               incident.status === "RESOLVED"
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                 : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
@@ -329,19 +348,25 @@ const saveSlackMutation = useMutation({
         </div>
       </div>
 
+      {updateMutation.isError && (
+  <div className="no-print bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+    <p className="text-sm font-medium text-red-600">Couldn't save changes. Please try again.</p>
+  </div>
+)}
+
       {/* Impact metrics */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <p className="text-xs font-medium text-slate-500 mb-1">Downtime</p>
-          <p className="text-2xl font-bold text-slate-900">{postmortem.impactMetrics.downtime}</p>
+          <p className="text-2xl font-bold text-slate-900">{postmortem.impactMetrics?.downtime ?? "Unknown"}</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <p className="text-xs font-medium text-slate-500 mb-1">Failure Rate</p>
-          <p className="text-2xl font-bold text-red-600">{postmortem.impactMetrics.failureRate}</p>
+          <p className="text-2xl font-bold text-red-600">{postmortem.impactMetrics?.failureRate ?? "Unknown"}</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <p className="text-xs font-medium text-slate-500 mb-1">Affected Users</p>
-          <p className="text-2xl font-bold text-orange-600">{postmortem.impactMetrics.affectedUsers}</p>
+          <p className="text-2xl font-bold text-orange-600">{postmortem.impactMetrics?.affectedUsers ?? "Unknown"}</p>
         </div>
       </div>
 
@@ -415,12 +440,13 @@ const saveSlackMutation = useMutation({
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
               />
               <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => saveEdit(key)}
-                  className="no-print text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg shadow-sm transition-all"
-                >
-                  Save
-                </button>
+               <button
+  onClick={() => saveEdit(key)}
+  disabled={!editValues[key]?.trim() || updateMutation.isPending}
+  className="no-print text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  Save
+</button>
                 <button
                   onClick={cancelEdit}
                   className="no-print text-xs font-medium text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
@@ -456,11 +482,7 @@ const saveSlackMutation = useMutation({
                 )}
               </div>
               <div className="pb-3">
-                <p className="text-xs text-slate-400 mb-0.5">
-                  {event.time
-                    ? new Date(event.time).toISOString().substring(11, 16) + " UTC"
-                    : "Unknown"}
-                </p>
+               <p className="text-xs text-slate-400 mb-0.5">{formatUtc(event.time, 'time')}</p>
                 <p className="text-sm text-slate-700">{event.event}</p>
               </div>
             </div>
@@ -485,16 +507,24 @@ const saveSlackMutation = useMutation({
           ) : (
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  updateMutation.mutate({ actionItems: editableActions } as any)
-                  setEditingActions(false)
-                }}
+               onClick={() => {
+ // Action items save: delete the "as any"
+const cleaned = editableActions.filter(a => a.task.trim())
+updateMutation.mutate(
+  { actionItems: cleaned },
+  { onSuccess: () => setEditingActions(false) }
+)
+}}
+disabled={updateMutation.isPending}
                 className="text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg shadow-sm transition-all"
               >
                 Save
               </button>
               <button
-                onClick={() => setEditingActions(false)}
+               onClick={() => {
+  setEditingActions(false)
+  updateMutation.reset()
+}}
                 className="text-xs font-medium text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 Cancel
@@ -606,7 +636,7 @@ const saveSlackMutation = useMutation({
     {entry.field.replace(/([A-Z])/g, " $1").trim()} — edited by {entry.editedByName || "Unknown"}
   </span>
   <span className="text-xs text-slate-400">
-    {new Date(entry.editedAt).toISOString().substring(0, 16).replace("T", " ")} UTC
+    {formatUtc(entry.editedAt, 'datetime')}
   </span>
 </div>
 

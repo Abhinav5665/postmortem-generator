@@ -1,15 +1,19 @@
 import axios from 'axios'
 
+
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+
 const api = axios.create({
-  baseURL: 'http://localhost:3001/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // ← add this
+  withCredentials: true,
 })
 
 const publicApi = axios.create({
-  baseURL: 'http://localhost:3001/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -24,6 +28,8 @@ export interface Incident {
   startTime: string
   endTime: string
   severity: 'P0' | 'P1' | 'P2'
+  severityOverridden?: boolean
+  detectedSeverity?: string | null
   status: 'OPEN' | 'RESOLVED'
   createdAt: string
   teamMembers?: TeamMember[]
@@ -44,6 +50,14 @@ export interface ActionItem {
   owner: string
   dueDate: string
   completed: boolean
+}
+export interface UpdatePostmortemPayload {
+  summary?: string
+  rootCause?: string
+  impact?: string
+  resolution?: string
+  wentWell?: string
+  actionItems?: ActionItem[]
 }
 
 export interface Postmortem {
@@ -122,8 +136,8 @@ export const postmortemsApi = {
   getOne: (id: string) =>
     api.get<{ success: boolean; data: Postmortem }>(`/postmortems/${id}`),
 
-  update: (id: string, data: Partial<Postmortem>) =>
-    api.patch(`/postmortems/${id}`, data),
+  update: (id: string, data: UpdatePostmortemPayload) =>
+  api.patch(`/postmortems/${id}`, data),
 
   toggleActionItem: (id: string, index: number) =>
     api.patch(`/postmortems/${id}/action-items/${index}`),

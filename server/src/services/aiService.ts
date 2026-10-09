@@ -58,7 +58,13 @@ export async function generatePostmortem(
   engineerNotes: string,
   severityResult: SeverityResult,
  teamMembers?: { name: string; role: string }[],
-  templateType: string = 'General'
+  templateType: string = 'General',
+   reportedImpact?: {
+    affectedUsers: number
+    serviceUnavailable: boolean
+    confirmedCompromise: boolean
+    dataBreach: boolean
+  }
 ): Promise<PostmortemResult> {
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
@@ -98,6 +104,16 @@ INFRASTRUCTURE TEMPLATE FOCUS: - Identify the affected infrastructure, such as s
 
 const templateFocus = templateInstructions[templateType] || ''
 
+
+const impactLines = reportedImpact
+  ? [
+      reportedImpact.affectedUsers > 0 ? `- Affected users: ${reportedImpact.affectedUsers}` : null,
+      reportedImpact.serviceUnavailable ? '- Service was fully unavailable' : null,
+      reportedImpact.confirmedCompromise ? '- Confirmed security compromise' : null,
+      reportedImpact.dataBreach ? '- Confirmed data breach' : null,
+    ].filter(Boolean).join('\n')
+  : ''
+
   
 
   const prompt = `
@@ -115,6 +131,7 @@ CRITICAL RULES:
 - Do NOT include a severity field
 - Do NOT invent due dates — always return "Not specified" for dueDate
 - For wentWell — only write what is directly supported by the logs or engineer notes. If there is no evidence of what went well, return "Not specified"
+- Use the engineer-reported impact exactly as given. Never contradict it.
 
 ${templateFocus ? `\nTEMPLATE FOCUS (${templateType} incident):\n${templateFocus}\n` : ''}
 
@@ -124,6 +141,7 @@ Duration: ${durationMinutes} minutes
 Start: ${startTime.toISOString()}
 End: ${endTime.toISOString()}
 Severity (system determined): ${severityResult.level} — ${severityResult.reasoning}
+${impactLines ? `\nENGINEER-REPORTED IMPACT (treat as confirmed fact):\n${impactLines}\n` : ''}
 
 TEAM:
 ${teamInfo}
