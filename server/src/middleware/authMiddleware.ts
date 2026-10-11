@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import { prisma } from '../lib/prisma'
 
 export interface AuthRequest extends Request {
   user?: {
@@ -10,11 +11,11 @@ export interface AuthRequest extends Request {
   }
 }
 
-export function authMiddleware(
+export async function authMiddleware(
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   const token = req.cookies?.token
 
   if (!token) {
@@ -22,14 +23,28 @@ export function authMiddleware(
     return
   }
 
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    console.error('JWT_SECRET is not set')
+    res.status(500).json({ error: 'Server is not configured correctly' })
+    return
+  }
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || '') as {
-      id: string
-      email: string
-      name: string
-      role: string
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { id: string }
+
+    // Load the current user so removed users and role changes take effect immediately
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, name: true, role: true },
+    })
+
+    if (!user) {
+      res.status(401).json({ error: 'User no longer exists' })
+      return
     }
-    req.user = decoded
+
+    req.user = user
     next()
   } catch (error) {
     res.status(401).json({ error: 'Invalid or expired token' })

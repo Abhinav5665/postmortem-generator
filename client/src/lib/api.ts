@@ -42,7 +42,7 @@ export interface Incident {
 export interface TimelineEvent {
   time: string
   event: string
-  type: 'ALERT_START' | 'ALERT_END' | 'ERROR' | 'FATAL' | 'WARN'
+ type: 'ALERT_START' | 'ALERT_END' | 'ERROR' | 'FATAL' | 'WARN' | 'INFO'
 }
 
 export interface ActionItem {
@@ -109,7 +109,8 @@ export interface CreateIncidentPayload {
 
 export interface Settings {
   id: string
-  slackWebhook: string | null
+    slackConnected: boolean
+  slackWebhookHint: string | null
   updatedAt: string
 }
 

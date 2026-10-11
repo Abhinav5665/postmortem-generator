@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { incidentsApi } from '../lib/api'
 import type { Incident } from '../lib/api'
-import { formatDistanceToNow, format, differenceInMinutes } from 'date-fns'
+import { formatDistanceToNow,  differenceInMinutes } from 'date-fns'
 import { useState } from 'react'
 
 function SeverityBadge({ severity }: { severity: 'P0' | 'P1' | 'P2' }) {
@@ -39,6 +39,12 @@ function getDuration(startTime: string, endTime: string): string {
   return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`
 }
 
+
+function formatUtcDate(value: string): string {
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? 'Unknown' : d.toISOString().substring(0, 10)
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
 
@@ -53,8 +59,8 @@ export default function Dashboard() {
 
 const filteredData = data?.filter(incident => {
   const matchesSearch = incident.serviceName
-    .toLowerCase()
-    .includes(search.toLowerCase())
+  .toLowerCase()
+  .includes(search.trim().toLowerCase())
   const matchesSeverity = severityFilter === 'ALL' || incident.severity === severityFilter
   const matchesStatus = statusFilter === 'ALL' || incident.status === statusFilter
   return matchesSearch && matchesSeverity && matchesStatus
@@ -130,13 +136,17 @@ const filteredData = data?.filter(incident => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <p className="text-slate-900 text-sm font-semibold">No incidents yet</p>
-          <button
-            onClick={() => navigate('/incidents/new')}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-full transition-colors"
-          >
-            Create your first incident
-          </button>
+          <p className="text-slate-900 text-sm font-semibold">
+  {data && data.length > 0 ? 'No incidents match your filters' : 'No incidents yet'}
+</p>
+{(!data || data.length === 0) && (
+  <button
+    onClick={() => navigate('/incidents/new')}
+    className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-full transition-colors"
+  >
+    Create your first incident
+  </button>
+)}
         </div>
       )}
 
@@ -156,23 +166,29 @@ const filteredData = data?.filter(incident => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredData?.map((incident: Incident) => (
-                <tr
-                  key={incident.id}
-                  className="hover:bg-teal-50/40 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/incidents/${incident.id}`)}
-                >
+               <tr
+  key={incident.id}
+  tabIndex={0}
+  className="hover:bg-teal-50/40 transition-colors cursor-pointer"
+  onClick={() => navigate(`/incidents/${incident.id}`)}
+  onKeyDown={e => {
+    if (e.key === 'Enter') navigate(`/incidents/${incident.id}`)
+  }}
+>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-slate-900">
-                      {format(new Date(incident.startTime), 'MMM d, yyyy')}
+                     {formatUtcDate(incident.startTime)}
                     </div>
                     <div className="text-xs text-slate-400">
-                      {formatDistanceToNow(new Date(incident.createdAt), { addSuffix: true })}
+                      {isNaN(new Date(incident.createdAt).getTime())
+  ? ''
+  : formatDistanceToNow(new Date(incident.createdAt), { addSuffix: true })}
                     </div>
                   </td>
                   <td className="px-6 py-4">
   <div className="flex items-center gap-2">
     <span className="text-sm font-semibold text-slate-900">{incident.serviceName}</span>
-    {incident.postmortem && (incident.postmortem as any).recurringAlert?.isRecurring && (
+    {incident.postmortem?.recurringAlert?.isRecurring && (
       <span className="text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full font-semibold">
         Recurring
       </span>
@@ -180,8 +196,18 @@ const filteredData = data?.filter(incident => {
   </div>
 </td>
                   <td className="px-6 py-4">
-                    <SeverityBadge severity={incident.severity} />
-                  </td>
+  <div className="flex items-center gap-2">
+    <SeverityBadge severity={incident.severity} />
+    {incident.severityOverridden && (
+      <span
+        title="Severity set manually by engineer"
+        className="text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full"
+      >
+        overridden
+      </span>
+    )}
+  </div>
+</td>
                   <td className="px-6 py-4">
                     <span className="text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">
                       {getDuration(incident.startTime, incident.endTime)}

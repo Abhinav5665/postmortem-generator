@@ -13,58 +13,85 @@ export interface ParsedLogsResult {
   totalLines: number
 }
 
-const LOG_LEVELS = ['FATAL', 'ERROR', 'WARN', 'WARNING', 'INFO', 'DEBUG'] as const
+type Level = ParsedLog['level']
 
-function extractTimestamp(line: string): Date | null {
-  const patterns = [
-    // 2024-01-15T10:23:45.123Z
-    /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)/,
-    // 2024-01-15 10:23:45
-    /(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})/,
-    // Jan 15 10:23:45
-    /([A-Za-z]{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})/,
-    // [2024-01-15 10:23:45]
-    /\[(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\]/,
-  ]
+const LEVELS = 'FATAL|ERROR|WARNING|WARN|INFO|DEBUG'
 
-  for (const pattern of patterns) {
-    const match = line.match(pattern)
-    if (match) {
-      const date = new Date(match[1])
-      if (!isNaN(date.getTime())) return date
-    }
+// Level at the very start of the text: "INFO  svc: ...", "[ERROR] ...", "ERROR: ..."
+const LEADING_LEVEL_RE = new RegExp(`^[\\s\\[\\(|:-]*(${LEVELS})\\b[\\]\\)]?[\\s:|-]*`, 'i')
+// "... [ERROR] ..."
+const BRACKET_LEVEL_RE = new RegExp(`\\[(${LEVELS})\\]`, 'i')
+// "... level=error ..."
+const KV_LEVEL_RE = new RegExp(`\\blevel=["']?(${LEVELS})["']?`, 'i')
+// "payment-api ERROR: ..." (uppercase token within the first 4 words)
+const EARLY_LEVEL_RE = new RegExp(`^((?:\\S+\\s+){0,3}?)(${LEVELS})\\b:?`)
+
+const ISO_RE =
+  /\[?(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(\.\d+)?\s?(Z|[+-]\d{2}:?\d{2})?\]?/
+const SYSLOG_RE = /\[?([A-Za-z]{3})\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\]?/
+
+function normalizeLevel(token: string): Level {
+  const t = token.toUpperCase()
+  return (t === 'WARNING' ? 'WARN' : t) as Level
+}
+
+interface TimestampMatch {
+  date: Date
+  text: string // exact text matched, so it can be removed from the message
+}
+
+function extractTimestamp(line: string): TimestampMatch | null {
+  const iso = line.match(ISO_RE)
+  if (iso) {
+    const [text, datePart, timePart, frac = '', tz = 'Z'] = iso
+    // Timestamps without a timezone are treated as UTC (the form does the same)
+    const offset = tz.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
+    const date = new Date(`${datePart}T${timePart}${frac}${offset}`)
+    if (!isNaN(date.getTime())) return { date, text }
+  }
+
+  const sys = line.match(SYSLOG_RE)
+  if (sys) {
+    const [text, mon, day, time] = sys
+    // Syslog lines have no year, so assume the current one (UTC)
+    const date = new Date(`${mon} ${day} ${new Date().getUTCFullYear()} ${time} UTC`)
+    if (!isNaN(date.getTime())) return { date, text }
   }
 
   return null
 }
 
-function extractLevel(line: string): ParsedLog['level'] {
-  const upper = line.toUpperCase()
+function extractLevel(text: string): { level: Level; message: string } {
+  let m = text.match(LEADING_LEVEL_RE)
+  if (m) return { level: normalizeLevel(m[1]), message: text.slice(m[0].length) }
 
-  for (const level of LOG_LEVELS) {
-    if (upper.includes(`[${level}]`) || upper.includes(` ${level} `) || upper.includes(` ${level}:`)) {
-      if (level === 'WARNING') return 'WARN'
-      return level as ParsedLog['level']
-    }
-  }
+  m = text.match(BRACKET_LEVEL_RE)
+  if (m) return { level: normalizeLevel(m[1]), message: text.replace(m[0], ' ') }
 
-  return 'UNKNOWN'
+  m = text.match(KV_LEVEL_RE)
+  if (m) return { level: normalizeLevel(m[1]), message: text.replace(m[0], ' ') }
+
+  m = text.match(EARLY_LEVEL_RE)
+  if (m) return { level: normalizeLevel(m[2]), message: m[1] + text.slice(m[0].length) }
+
+  return { level: 'UNKNOWN', message: text }
 }
 
-function extractMessage(line: string): string {
-  // Remove timestamp
-  let message = line
-    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/, '')
-    .replace(/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/, '')
-    .replace(/[A-Za-z]{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}/, '')
-    .replace(/\[(.*?)\]/, '')
+function cleanMessage(message: string): string {
+  return message.replace(/\s+/g, ' ').replace(/^[\s:|-]+/, '').trim()
+}
 
-  // Remove log level
-  for (const level of LOG_LEVELS) {
-    message = message.replace(new RegExp(`\\b${level}\\b`, 'gi'), '')
+function parseLine(line: string): ParsedLog {
+  const ts = extractTimestamp(line)
+  const rest = (ts ? line.replace(ts.text, ' ') : line).trim()
+  const { level, message } = extractLevel(rest)
+
+  return {
+    timestamp: ts ? ts.date : null,
+    level,
+    message: cleanMessage(message),
+    raw: line,
   }
-
-  return message.replace(/\s+/g, ' ').trim()
 }
 
 export function parseLogs(rawLogs: string): ParsedLogsResult {
@@ -73,29 +100,28 @@ export function parseLogs(rawLogs: string): ParsedLogsResult {
     .map(line => line.trim())
     .filter(Boolean)
 
-  const logs: ParsedLog[] = lines.map(line => ({
-    timestamp: extractTimestamp(line),
-    level: extractLevel(line),
-    message: extractMessage(line),
-    raw: line,
-  }))
+  const parsed = lines.map(parseLine)
 
-  // Filter out INFO and DEBUG — only keep meaningful logs
-  const filteredLogs = logs.filter(log =>
-    ['ERROR', 'FATAL', 'WARN', 'UNKNOWN'].includes(log.level)
-  )
-
-  // Sort by timestamp
-  const sortedLogs = filteredLogs.sort((a, b) => {
-    if (!a.timestamp || !b.timestamp) return 0
-    return a.timestamp.getTime() - b.timestamp.getTime()
+  // Sort by time. Lines without a timestamp (stack traces, continuation lines)
+  // inherit the previous line's time, so they stay next to their parent line.
+  let lastTime = 0
+  const keyed = parsed.map((log, index) => {
+    if (log.timestamp) lastTime = log.timestamp.getTime()
+    return { log, index, key: lastTime }
   })
 
+  // Keep everything except DEBUG. INFO is kept because it often holds the fix
+  // steps; the AI prompt and the timeline builder choose what they need.
+  const logs = keyed
+    .filter(k => k.log.level !== 'DEBUG')
+    .sort((a, b) => a.key - b.key || a.index - b.index)
+    .map(k => k.log)
+
   return {
-    logs: sortedLogs,
-    errorCount: logs.filter(l => l.level === 'ERROR').length,
-    fatalCount: logs.filter(l => l.level === 'FATAL').length,
-    warnCount: logs.filter(l => l.level === 'WARN').length,
+    logs,
+    errorCount: parsed.filter(l => l.level === 'ERROR').length,
+    fatalCount: parsed.filter(l => l.level === 'FATAL').length,
+    warnCount: parsed.filter(l => l.level === 'WARN').length,
     totalLines: lines.length,
   }
 }

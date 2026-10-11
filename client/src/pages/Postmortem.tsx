@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { differenceInMinutes } from 'date-fns'
 
-import { incidentsApi, postmortemsApi, settingsApi } from '../lib/api'
-
+import { incidentsApi, postmortemsApi, settingsApi, authApi } from '../lib/api'
 import type { ActionItem, TeamMember, UpdatePostmortemPayload } from '../lib/api'
 
 // Truncated text with read more toggle
@@ -19,6 +18,7 @@ function ExpandableText({ text }: { text: string }) {
       </p>
       {isLong && (
         <button
+          type="button"
           onClick={() => setExpanded(prev => !prev)}
           className="text-xs text-indigo-500 hover:text-indigo-700 mt-1"
         >
@@ -83,6 +83,7 @@ function formatUtc(value: string | null | undefined, part: 'time' | 'datetime'):
     ? `${iso.substring(11, 16)} UTC`
     : `${iso.substring(0, 16).replace('T', ' ')} UTC`
 }
+
 export default function Postmortem() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -95,20 +96,27 @@ export default function Postmortem() {
   const [editableActions, setEditableActions] = useState<ActionItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [slackSent, setSlackSent] = useState(false)
-const [slackError, setSlackError] = useState<string | null>(null)
-const [showSlackModal, setShowSlackModal] = useState(false)
-const [slackWebhookInput, setSlackWebhookInput] = useState('')
-
+  const [slackError, setSlackError] = useState<string | null>(null)
+  const [slackModalError, setSlackModalError] = useState<string | null>(null)
+  const [showSlackModal, setShowSlackModal] = useState(false)
+  const [slackWebhookInput, setSlackWebhookInput] = useState('')
 
   const { data: incident, isLoading, isError } = useQuery({
     queryKey: ['incident', id],
     queryFn: () => incidentsApi.getOne(id!).then(res => res.data.data),
     enabled: !!id,
   })
+
   const { data: settingsData, refetch: refetchSettings } = useQuery({
-  queryKey: ['settings'],
-  queryFn: () => settingsApi.get().then(res => res.data.data),
-})
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.get().then(res => res.data.data),
+  })
+
+  const { data: me } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => authApi.me().then(res => res.data.data),
+  })
+  const isAdmin = me?.role === 'ADMIN'
 
   const updateMutation = useMutation({
     mutationFn: (data: UpdatePostmortemPayload) =>
@@ -134,42 +142,53 @@ const [slackWebhookInput, setSlackWebhookInput] = useState('')
       queryClient.invalidateQueries({ queryKey: ['incident', id] })
     },
   })
+
   const slackMutation = useMutation({
-  mutationFn: () => incidentsApi.notifySlack(id!),
-  onSuccess: () => {
-    setSlackSent(true)
-    setSlackError(null)
-     setTimeout(() => setSlackSent(false), 3000)
-  },
-  onError: (error: any) => {
-    setSlackError(error.response?.data?.error || 'Failed to send to Slack')
-  },
-})
-const saveSlackMutation = useMutation({
-  mutationFn: (webhookUrl: string) =>
-    settingsApi.update({ slackWebhook: webhookUrl }),
-  onSuccess: () => {
-    refetchSettings()
-    setShowSlackModal(false)
-  },
-})
+    mutationFn: () => incidentsApi.notifySlack(id!),
+    onSuccess: () => {
+      setSlackSent(true)
+      setSlackError(null)
+      setTimeout(() => setSlackSent(false), 3000)
+    },
+    onError: (error: any) => {
+      setSlackError(error.response?.data?.error || 'Failed to send to Slack')
+    },
+  })
+
+  const saveSlackMutation = useMutation({
+    mutationFn: (webhookUrl: string) =>
+      settingsApi.update({ slackWebhook: webhookUrl }),
+    onSuccess: () => {
+      refetchSettings()
+      setSlackModalError(null)
+      setShowSlackModal(false)
+    },
+    onError: (error: any) => {
+      setSlackModalError(
+        error.response?.status === 403
+          ? 'Only admins can change Slack settings'
+          : error.response?.data?.details?.[0]?.message ||
+            error.response?.data?.error ||
+            'Failed to save Slack settings'
+      )
+    },
+  })
 
   function startEdit(field: string, currentValue: string) {
     setEditingField(field)
     setEditValues(prev => ({ ...prev, [field]: currentValue }))
   }
 
-// saveEdit: field is a plain string, so cast to the payload type
-function saveEdit(field: string) {
-  updateMutation.mutate({ [field]: editValues[field] } as UpdatePostmortemPayload)
-}
+  function saveEdit(field: string) {
+    updateMutation.mutate({ [field]: editValues[field] } as UpdatePostmortemPayload)
+  }
 
- function cancelEdit() {
-  setEditingField(null)
-  updateMutation.reset()
-}
+  function cancelEdit() {
+    setEditingField(null)
+    updateMutation.reset()
+  }
 
- if (isLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-slate-50 min-h-screen">
         <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-center">
@@ -204,140 +223,189 @@ function saveEdit(field: string) {
   return (
     <div className="p-8 max-w-4xl mx-auto w-full bg-slate-50 min-h-screen">
 
-      
-     {/* Top bar */}
-<div className="flex items-center justify-between mb-8">
-  <button
-    onClick={() => navigate("/dashboard")}
-    className="no-print flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors"
-  >
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-    Back to Dashboard
-  </button>
-
-  <div className="no-print flex items-center gap-3">
-    {slackSent && (
-      <span className="text-xs text-emerald-600 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">✓ Sent to Slack</span>
-    )}
-    {slackError && (
-      <span className="text-xs text-red-500">{slackError}</span>
-    )}
-
-    {/* Configure Slack */}
-    <button
-      onClick={() => {
-        setSlackWebhookInput(settingsData?.slackWebhook || "")
-        setShowSlackModal(true)
-      }}
-      className="text-xs font-medium text-slate-600 hover:text-slate-800 border border-slate-200 bg-white px-3 py-2 rounded-xl transition-colors shadow-sm"
-    >
-      {settingsData?.slackWebhook ? "⚙ Slack Connected" : "+ Configure Slack"}
-    </button>
-
-    {/* Send to Slack */}
-    <button
-      onClick={() => slackMutation.mutate()}
-      disabled={slackMutation.isPending || slackSent || !settingsData?.slackWebhook}
-      title={!settingsData?.slackWebhook ? "Configure Slack first" : ""}
-      className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm"
-    >
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
-      </svg>
-      {slackMutation.isPending ? "Sending..." : slackSent ? "Sent" : "Send to Slack"}
-    </button>
-
-    {/* Export PDF */}
-    <button
-      onClick={() => window.print()}
-      className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-      Export PDF
-    </button>
-  </div>
-</div>
-
-{/* Slack Modal */}
-{showSlackModal && (
-  <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 no-print">
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
-      <h2 className="text-sm font-semibold text-slate-900 mb-1">Configure Slack</h2>
-      <p className="text-xs text-slate-500 mb-4">
-        Paste your Slack webhook URL to enable notifications.
-        Get one from<a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-teal-600 underline">api.slack.com/apps</a>
-      </p>
-      <input
-        type="text"
-        value={slackWebhookInput}
-        onChange={e => setSlackWebhookInput(e.target.value)}
-        placeholder="https://hooks.slack.com/services/..."
-        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all mb-4"
-      />
-      <div className="flex gap-2 justify-end">
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-8">
         <button
-          onClick={() => setShowSlackModal(false)}
-          className="text-xs font-medium text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          type="button"
+          onClick={() => navigate("/dashboard")}
+          className="no-print flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors"
         >
-          Cancel
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Dashboard
         </button>
-        {settingsData?.slackWebhook && (
+
+        <div className="no-print flex items-center gap-3">
+          {slackSent && (
+            <span className="text-xs text-emerald-600 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">✓ Sent to Slack</span>
+          )}
+          {slackError && (
+            <span className="text-xs text-red-500">{slackError}</span>
+          )}
+
+          {/* Configure Slack (admin) / status label (member) */}
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSlackWebhookInput("")
+                setSlackModalError(null)
+                saveSlackMutation.reset()
+                setShowSlackModal(true)
+              }}
+              className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm"
+            >
+              {settingsData?.slackConnected ? "⚙ Slack Connected" : "+ Configure Slack"}
+            </button>
+          ) : (
+            <span className="text-xs font-medium text-slate-500 border border-slate-200 bg-slate-50 px-3 py-2 rounded-xl">
+              {settingsData?.slackConnected
+                ? "✓ Slack Connected"
+                : "Slack not connected · ask an admin"}
+            </span>
+          )}
+
+          {/* Send to Slack */}
           <button
-            onClick={() => saveSlackMutation.mutate("")}
-            className="text-xs font-medium text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+            type="button"
+            onClick={() => slackMutation.mutate()}
+            disabled={slackMutation.isPending || slackSent || !settingsData?.slackConnected}
+            title={
+              !settingsData?.slackConnected
+                ? isAdmin
+                  ? "Configure Slack first"
+                  : "Ask an admin to connect Slack"
+                : ""
+            }
+            className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm"
           >
-            Disconnect
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+            </svg>
+            {slackMutation.isPending ? "Sending..." : slackSent ? "Sent" : "Send to Slack"}
           </button>
-        )}
-        <button
-          onClick={() => saveSlackMutation.mutate(slackWebhookInput)}
-          disabled={!slackWebhookInput || saveSlackMutation.isPending}
-          className="text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg disabled:opacity-50 shadow-sm transition-all"
-        >
-          {saveSlackMutation.isPending ? "Saving..." : "Save"}
-        </button>
+
+          {/* Export PDF */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export PDF
+          </button>
+        </div>
       </div>
-    </div>
-  </div>
-)}
+
+      {/* Slack Modal */}
+      {showSlackModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 no-print">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h2 className="text-sm font-semibold text-slate-900 mb-1">Configure Slack</h2>
+            <p className="text-xs text-slate-500 mb-4">
+              Paste your Slack webhook URL to enable notifications.
+              Get one from{" "}
+              <a
+                href="https://api.slack.com/apps"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-teal-600 underline"
+              >
+                api.slack.com/apps
+              </a>
+            </p>
+
+            {settingsData?.slackConnected && (
+              <p className="text-xs text-slate-500 mb-2">
+                Connected ({settingsData.slackWebhookHint}). Paste a new URL to replace it.
+              </p>
+            )}
+
+            <input
+              type="text"
+              value={slackWebhookInput}
+              onChange={e => setSlackWebhookInput(e.target.value)}
+              placeholder="https://hooks.slack.com/services/..."
+              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all mb-4"
+            />
+
+            {saveSlackMutation.isError && slackModalError && (
+              <p className="text-xs text-red-500 mb-3">{slackModalError}</p>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSlackModal(false)}
+                className="text-xs font-medium text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              {settingsData?.slackConnected && (
+                <button
+                  type="button"
+                  onClick={() => saveSlackMutation.mutate("")}
+                  className="text-xs font-medium text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  Disconnect
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => saveSlackMutation.mutate(slackWebhookInput)}
+                disabled={!slackWebhookInput || saveSlackMutation.isPending}
+                className="text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg disabled:opacity-50 shadow-sm transition-all"
+              >
+                {saveSlackMutation.isPending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Title */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Postmortem — {incident.serviceName}
           </h1>
-          <SeverityBadge severity={incident.severity as "P0" | "P1" | "P2"} />
-{incident.severityOverridden && (
-  <span
-    title={incident.detectedSeverity ? `System auto-detected ${incident.detectedSeverity}` : "Severity set manually"}
-    className="text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full"
-  >
-    overridden{incident.detectedSeverity ? ` · auto: ${incident.detectedSeverity}` : ""}
-  </span>
-)}
+          <SeverityBadge severity={incident.severity} />
+          {incident.severityOverridden && (
+            <span
+              title={
+                incident.detectedSeverity
+                  ? `System auto-detected ${incident.detectedSeverity}`
+                  : "Severity set manually"
+              }
+              className="text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full"
+            >
+              overridden{incident.detectedSeverity ? ` · auto: ${incident.detectedSeverity}` : ""}
+            </span>
+          )}
+          {postmortem.isEdited && (
+            <span className="text-xs text-slate-400 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">edited</span>
+          )}
         </div>
-        
         <div className="flex items-center gap-4 text-sm text-slate-500 flex-wrap">
           <span>
-            {formatUtc(incident.startTime, 'datetime')} · {formatUtc(incident.endTime, 'datetime')}
+            {formatUtc(incident.startTime, 'datetime')} → {formatUtc(incident.endTime, 'datetime')}
           </span>
           <span>Duration: {getDuration(incident.startTime, incident.endTime)}</span>
           {incident.createdByName && (
-  <p className="text-xs text-slate-400">
-    Created by {incident.createdByName}
-  </p>
-)}
+            <p className="text-xs text-slate-400">
+              Created by {incident.createdByName}
+            </p>
+          )}
           <button
+            type="button"
             onClick={() => statusMutation.mutate(
               incident.status === "OPEN" ? "RESOLVED" : "OPEN"
             )}
             disabled={statusMutation.isPending}
-       className={`no-print px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors disabled:opacity-60 ${
+            className={`no-print px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors disabled:opacity-60 ${
               incident.status === "RESOLVED"
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                 : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
@@ -349,10 +417,12 @@ function saveEdit(field: string) {
       </div>
 
       {updateMutation.isError && (
-  <div className="no-print bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
-    <p className="text-sm font-medium text-red-600">Couldn't save changes. Please try again.</p>
-  </div>
-)}
+        <div className="no-print bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+          <p className="text-sm font-medium text-red-600">
+            Couldn&apos;t save changes. Please try again.
+          </p>
+        </div>
+      )}
 
       {/* Impact metrics */}
       <div className="grid grid-cols-3 gap-4 mb-8">
@@ -424,6 +494,7 @@ function saveEdit(field: string) {
             <h2 className="text-sm font-semibold text-slate-700">{label}</h2>
             {editingField !== key && (
               <button
+                type="button"
                 onClick={() => startEdit(key, postmortem[key as keyof typeof postmortem] as string)}
                 className="no-print text-xs font-semibold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1 rounded-full border border-teal-100 transition-colors"
               >
@@ -440,14 +511,16 @@ function saveEdit(field: string) {
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
               />
               <div className="flex gap-2 mt-3">
-               <button
-  onClick={() => saveEdit(key)}
-  disabled={!editValues[key]?.trim() || updateMutation.isPending}
-  className="no-print text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
->
-  Save
-</button>
                 <button
+                  type="button"
+                  onClick={() => saveEdit(key)}
+                  disabled={!editValues[key]?.trim() || updateMutation.isPending}
+                  className="no-print text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
                   onClick={cancelEdit}
                   className="no-print text-xs font-medium text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                 >
@@ -482,7 +555,7 @@ function saveEdit(field: string) {
                 )}
               </div>
               <div className="pb-3">
-               <p className="text-xs text-slate-400 mb-0.5">{formatUtc(event.time, 'time')}</p>
+                <p className="text-xs text-slate-400 mb-0.5">{formatUtc(event.time, 'time')}</p>
                 <p className="text-sm text-slate-700">{event.event}</p>
               </div>
             </div>
@@ -496,6 +569,7 @@ function saveEdit(field: string) {
           <h2 className="text-sm font-semibold text-slate-700">Action Items</h2>
           {!editingActions ? (
             <button
+              type="button"
               onClick={() => {
                 setEditableActions([...actionItems])
                 setEditingActions(true)
@@ -507,24 +581,25 @@ function saveEdit(field: string) {
           ) : (
             <div className="flex gap-2">
               <button
-               onClick={() => {
- // Action items save: delete the "as any"
-const cleaned = editableActions.filter(a => a.task.trim())
-updateMutation.mutate(
-  { actionItems: cleaned },
-  { onSuccess: () => setEditingActions(false) }
-)
-}}
-disabled={updateMutation.isPending}
-                className="text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg shadow-sm transition-all"
+                type="button"
+                onClick={() => {
+                  const cleaned = editableActions.filter(a => a.task.trim())
+                  updateMutation.mutate(
+                    { actionItems: cleaned },
+                    { onSuccess: () => setEditingActions(false) }
+                  )
+                }}
+                disabled={updateMutation.isPending}
+                className="text-xs font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-1.5 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
               </button>
               <button
-               onClick={() => {
-  setEditingActions(false)
-  updateMutation.reset()
-}}
+                type="button"
+                onClick={() => {
+                  setEditingActions(false)
+                  updateMutation.reset()
+                }}
                 className="text-xs font-medium text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 Cancel
@@ -584,6 +659,7 @@ disabled={updateMutation.isPending}
                   />
                 </div>
                 <button
+                  type="button"
                   onClick={() => setEditableActions(prev => prev.filter((_, i) => i !== index))}
                   className="text-slate-400 hover:text-red-500 transition-colors mt-1 p-1"
                 >
@@ -594,6 +670,7 @@ disabled={updateMutation.isPending}
               </div>
             ))}
             <button
+              type="button"
               onClick={() => setEditableActions(prev => [
                 ...prev,
                 { task: "", owner: "", dueDate: "Not specified", completed: false }
@@ -610,95 +687,96 @@ disabled={updateMutation.isPending}
       </div>
 
       {/* Edit History */}
-{postmortem.editHistory && postmortem.editHistory.length > 0 && (
-  <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm no-print">
-    <button
-      onClick={() => setShowHistory(prev => !prev)}
-      className="w-full flex items-center justify-between text-sm font-semibold text-slate-700"
-    >
-      <span>Edit History ({postmortem.editHistory.length} changes)</span>
-      <svg
-        className={`w-4 h-4 text-slate-400 transition-transform ${showHistory ? "rotate-180" : ""}`}
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
+      {postmortem.editHistory && postmortem.editHistory.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm no-print">
+          <button
+            type="button"
+            onClick={() => setShowHistory(prev => !prev)}
+            className="w-full flex items-center justify-between text-sm font-semibold text-slate-700"
+          >
+            <span>Edit History ({postmortem.editHistory.length} changes)</span>
+            <svg
+              className={`w-4 h-4 text-slate-400 transition-transform ${showHistory ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
 
-    {showHistory && (
-      <div className="mt-4 space-y-4">
-        {postmortem.editHistory.map((entry, index) => (
-          <div key={index} className="border border-slate-100 rounded-xl p-3 bg-slate-50">
-            <div className="flex items-center justify-between mb-1">
-  <span className="text-xs font-semibold text-slate-700 capitalize">
-    {entry.field.replace(/([A-Z])/g, " $1").trim()} — edited by {entry.editedByName || "Unknown"}
-  </span>
-  <span className="text-xs text-slate-400">
-    {formatUtc(entry.editedAt, 'datetime')}
-  </span>
-</div>
-
-            {entry.field === "actionItems" ? (
-              (() => {
-                const { added, removed, edited } = getActionItemDiff(
-  entry.oldValue,
-  entry.newValue
-)
-                return (
-                  <div className="space-y-2">
-                    {removed.map((item, i) => (
-                      <div key={i} className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-2">
-                        <span className="text-xs text-red-500 font-bold mt-0.5">−</span>
-                        <div>
-                          <p className="text-xs text-red-600 line-through">{item.task}</p>
-                          {item.owner && <p className="text-xs text-red-400">Owner: {item.owner}</p>}
-                        </div>
-                      </div>
-                    ))}
-                    {added.map((item, i) => (
-                      <div key={i} className="flex items-start gap-2 bg-emerald-50 border border-emerald-100 rounded-xl p-2">
-                        <span className="text-xs text-emerald-600 font-bold mt-0.5">+</span>
-                        <div>
-                          <p className="text-xs text-emerald-700">{item.task}</p>
-                          {item.owner && <p className="text-xs text-emerald-500">Owner: {item.owner}</p>}
-                        </div>
-                      </div>
-                    ))}
-                    {edited.map((item, i) => (
-                      <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl p-2">
-                        <span className="text-xs text-amber-600 font-bold mt-0.5">✏</span>
-                        <div>
-                          <p className="text-xs text-amber-700">{item.task}</p>
-                          <p className="text-xs text-amber-500">Owner changed to: {item.owner}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {added.length === 0 && removed.length === 0 && edited.length === 0 && (
-                      <p className="text-xs text-slate-400 italic">Action items were reordered or completion status changed</p>
-                    )}
+          {showHistory && (
+            <div className="mt-4 space-y-4">
+              {postmortem.editHistory.map((entry, index) => (
+                <div key={index} className="border border-slate-100 rounded-xl p-3 bg-slate-50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-slate-700 capitalize">
+                      {entry.field.replace(/([A-Z])/g, " $1").trim()} — edited by {entry.editedByName || "Unknown"}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {formatUtc(entry.editedAt, 'datetime')}
+                    </span>
                   </div>
-                )
-              })()
-            ) : (
-              <div className="space-y-2">
-                <div className="bg-red-50 border border-red-100 rounded-xl p-2">
-                  <p className="text-xs text-red-500 font-medium mb-1">Before</p>
-                  <ExpandableText text={entry.oldValue || "Empty"} />
+
+                  {entry.field === "actionItems" ? (
+                    (() => {
+                      const { added, removed, edited } = getActionItemDiff(
+                        entry.oldValue,
+                        entry.newValue
+                      )
+                      return (
+                        <div className="space-y-2">
+                          {removed.map((item, i) => (
+                            <div key={i} className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-2">
+                              <span className="text-xs text-red-500 font-bold mt-0.5">−</span>
+                              <div>
+                                <p className="text-xs text-red-600 line-through">{item.task}</p>
+                                {item.owner && <p className="text-xs text-red-400">Owner: {item.owner}</p>}
+                              </div>
+                            </div>
+                          ))}
+                          {added.map((item, i) => (
+                            <div key={i} className="flex items-start gap-2 bg-emerald-50 border border-emerald-100 rounded-xl p-2">
+                              <span className="text-xs text-emerald-600 font-bold mt-0.5">+</span>
+                              <div>
+                                <p className="text-xs text-emerald-700">{item.task}</p>
+                                {item.owner && <p className="text-xs text-emerald-500">Owner: {item.owner}</p>}
+                              </div>
+                            </div>
+                          ))}
+                          {edited.map((item, i) => (
+                            <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl p-2">
+                              <span className="text-xs text-amber-600 font-bold mt-0.5">✏</span>
+                              <div>
+                                <p className="text-xs text-amber-700">{item.task}</p>
+                                <p className="text-xs text-amber-500">Owner changed to: {item.owner}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {added.length === 0 && removed.length === 0 && edited.length === 0 && (
+                            <p className="text-xs text-slate-400 italic">Action items were reordered or completion status changed</p>
+                          )}
+                        </div>
+                      )
+                    })()
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="bg-red-50 border border-red-100 rounded-xl p-2">
+                        <p className="text-xs text-red-500 font-medium mb-1">Before</p>
+                        <ExpandableText text={entry.oldValue || "Empty"} />
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2">
+                        <p className="text-xs text-emerald-600 font-medium mb-1">After</p>
+                        <ExpandableText text={entry.newValue || "Empty"} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2">
-  <p className="text-xs text-emerald-600 font-medium mb-1">After</p>
-  <ExpandableText text={entry.newValue || "Empty"} />
-</div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   )

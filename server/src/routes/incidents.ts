@@ -31,13 +31,14 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
         severity: true,
         status: true,
         createdAt: true,
+        severityOverridden: true,
         postmortem: {
           select: {
             id: true,
             generatedAt: true,
               recurringAlert: true,
-              severity: true,
-severityOverridden: true,
+              
+
           },
         },
       },
@@ -111,9 +112,15 @@ router.post(
       }
 
       // Parse participants from comma separated string
-    const teamMembersList = teamMembers
-  ? JSON.parse(teamMembers)
-  : []
+    let teamMembersList: { name: string; role: string }[] = []
+if (teamMembers) {
+  try {
+    teamMembersList = JSON.parse(teamMembers)
+  } catch {
+    res.status(400).json({ error: 'teamMembers must be valid JSON' })
+    return
+  }
+}
 
       // Run all services
       const durationMinutes = severityScorer.getDurationMinutes(start, end)
@@ -183,53 +190,56 @@ const severityResult: SeverityResult = severityOverride
       // Save incident and postmortem to DB in one transaction
       const incident = await prisma.incident.create({
         data: {
-          serviceName,
-          startTime: start,
-          endTime: end,
-          rawLogs: logsText,
-          engineerNotes,
-          severity: severityResult.level,
-          status: 'OPEN',
-          templateType: templateType || 'General',
-          teamMembers: JSON.parse(JSON.stringify(teamMembersList)),
-           createdByName: req.user?.name || 'Unknown',  
-          postmortem: {
-            create: {
-              summary: postmortemResult.summary,
-              timeline: JSON.parse(JSON.stringify(timeline)),
-              rootCause: postmortemResult.rootCause,
-              impact: postmortemResult.impact,
-              impactMetrics: impactMetrics,
-              resolution: postmortemResult.resolution,
-              wentWell: postmortemResult.wentWell,
-              actionItems: postmortemResult.actionItems,
-              severity: severityResult.level,
-detectedSeverity: detected.level,
-severityOverridden: !!severityOverride,
-            },
-          },
-        },
+  serviceName,
+  startTime: start,
+  endTime: end,
+  rawLogs: logsText,
+  engineerNotes,
+  severity: severityResult.level,
+  detectedSeverity: detected.level,
+  severityOverridden: !!severityOverride,
+  status: 'OPEN',
+  templateType: templateType || 'General',
+  teamMembers: JSON.parse(JSON.stringify(teamMembersList)),
+  createdByName: req.user?.name || 'Unknown',
+  postmortem: {
+    create: {
+      summary: postmortemResult.summary,
+      timeline: JSON.parse(JSON.stringify(timeline)),
+      rootCause: postmortemResult.rootCause,
+      impact: postmortemResult.impact,
+      impactMetrics,
+      resolution: postmortemResult.resolution,
+      wentWell: postmortemResult.wentWell,
+      actionItems: postmortemResult.actionItems,
+      severity: severityResult.level,
+    },
+  },
+},
         include: { postmortem: true },
       })
 
       // Check for recurring incidents
 // Check for recurring incidents
-const recurringResult = await recurringDetector.checkRecurringIncident(
-  serviceName,
-  incident.id,
-  postmortemResult.rootCause,
-  postmortemResult.summary
-)
+// Check for recurring incidents (non-critical: never fail the request)
+try {
+  const recurringResult = await recurringDetector.checkRecurringIncident(
+    serviceName,
+    incident.id,
+    postmortemResult.rootCause,
+    postmortemResult.summary
+  )
 
-console.log('Recurring check result:', JSON.stringify(recurringResult))
-
-if (recurringResult.isRecurring) {
-  await prisma.postmortem.update({
-    where: { incidentId: incident.id },
-    data: {
-      recurringAlert: JSON.parse(JSON.stringify(recurringResult)),
-    },
-  })
+  if (recurringResult.isRecurring) {
+    await prisma.postmortem.update({
+      where: { incidentId: incident.id },
+      data: {
+        recurringAlert: JSON.parse(JSON.stringify(recurringResult)),
+      },
+    })
+  }
+} catch (err) {
+  console.error('Recurring check failed (incident was saved):', err)
 }
 
 // Fetch updated incident with recurringAlert included
@@ -336,7 +346,12 @@ router.patch('/:id/status', async (req: Request, res: Response): Promise<void> =
     })
 
     res.json({ success: true, data: incident })
-  } catch (error) {
+   } catch (error) {
+    if ((error as { code?: string })?.code === 'P2025') {
+      res.status(404).json({ error: 'Incident not found' })
+      return
+    }
+    console.error('Update status error:', error)
     res.status(500).json({ error: 'Failed to update incident status' })
   }
 })
