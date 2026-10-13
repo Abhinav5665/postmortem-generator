@@ -221,7 +221,7 @@ export default function Postmortem() {
   const actionItems = postmortem.actionItems as ActionItem[]
 
   return (
-    <div className="p-8 max-w-4xl mx-auto w-full bg-slate-50 min-h-screen">
+    <div className="postmortem-page p-8 max-w-4xl mx-auto w-full bg-slate-50 min-h-screen">
 
       {/* Top bar */}
       <div className="flex items-center justify-between mb-8">
@@ -537,11 +537,11 @@ export default function Postmortem() {
       ))}
 
       {/* Timeline */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm">
+      <div className="print-break-ok bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">Timeline</h2>
         <div className="space-y-3">
           {postmortem.timeline.map((event, index) => (
-            <div key={index} className="flex gap-3">
+            <div key={index} className="timeline-event flex gap-3">
               <div className="flex flex-col items-center">
                 <div className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${
                   event.type === "FATAL" ? "bg-red-500" :

@@ -13,37 +13,38 @@
   display: none;
 }
 @media print {
-  @page {
-    margin: 1.5cm;
-    size: A4;
+  @page { size: A4; margin: 14mm; }
+
+  html, body { background: #fff !important; }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  aside { display: none !important; }
   .no-print { display: none !important; }
-  body { background: white; }
-  main { overflow: visible; }
 
-  .bg-white {
-    break-inside: auto;
+  .postmortem-page {
+    padding: 0 !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    background: #fff !important;
   }
 
-  .space-y-3 > div {
+  /* Keep each card whole on one page */
+  .postmortem-page > * {
     break-inside: avoid;
+    page-break-inside: avoid;
   }
 
-  /* Action items — allow section to break but keep each item together */
-  .space-y-3 {
+  /* Long cards may split, but never in the middle of an entry */
+  .postmortem-page > .print-break-ok {
     break-inside: auto;
+    page-break-inside: auto;
   }
+  .timeline-event { break-inside: avoid; page-break-inside: avoid; }
 
-  /* Each action item stays together */
-  .space-y-3 > div {
-    break-inside: avoid;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 8px;
-    margin-bottom: 6px;
-  }
+  .postmortem-page .shadow-sm { box-shadow: none !important; }
+  h1, h2 { break-after: avoid; }
 }
 
 

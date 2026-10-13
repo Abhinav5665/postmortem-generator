@@ -15,7 +15,7 @@ const ActionItemSchema = z.object({
   completed: z.boolean().default(false),
 })
 
-// Severity removed entirely: application owns it, not Gemini
+// Severity removed entirely: application owns it, not the AI
 const PostmortemSchema = z.object({
   summary: z.string(),
   rootCause: z.string(),
@@ -93,6 +93,80 @@ const templateInstructions: Record<string, string> = {
 - Explain the impact on the affected service based only on available evidence
 - Suggest infrastructure resilience, monitoring, or redundancy improvements directly related to the incident
 - Do not invent infrastructure components, failures, or recovery actions`,
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Temporary provider errors worth retrying
+function isRetryable(err: unknown): boolean {
+  const status = (err as { status?: number })?.status
+  return status === 429 || status === 500 || status === 503 || status === 504
+}
+
+// Last-resort fallback: OpenRouter (OpenAI-compatible API)
+async function generateWithOpenRouter(prompt: string): Promise<string> {
+  const apiKey = process.env.OPENROUTER_API_KEY
+  const model = process.env.OPENROUTER_MODEL
+  if (!apiKey || !model) throw new Error('OpenRouter is not configured')
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      max_tokens: 6000, // reasoning models spend tokens thinking before the answer
+    }),
+    signal: AbortSignal.timeout(90_000),
+  })
+
+  if (!res.ok) {
+    const err = new Error(`OpenRouter error ${res.status}`) as Error & { status?: number }
+    err.status = res.status
+    throw err
+  }
+
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string | null } }[]
+  }
+  return data.choices?.[0]?.message?.content || ''
+}
+
+// Two tries on the primary Gemini model, one on the fallback Gemini model,
+// then OpenRouter if configured. Non-retryable errors (bad key, bad request)
+// are thrown immediately.
+async function generateWithRetry(ai: GoogleGenAI, prompt: string): Promise<string> {
+  const primary = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const fallback = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash'
+  const models = [primary, primary, fallback]
+
+  let lastErr: unknown
+  for (let i = 0; i < models.length; i++) {
+    try {
+      const result = await ai.models.generateContent({
+        model: models[i],
+        contents: prompt,
+        config: { responseMimeType: 'application/json' },
+      })
+      return result.text || ''
+    } catch (err) {
+      lastErr = err
+      if (!isRetryable(err)) throw err
+      if (i < models.length - 1) await sleep(1500 * 2 ** i)
+    }
+  }
+
+  // Gemini is busy or down: try OpenRouter if it is configured
+  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_MODEL) {
+    console.warn('Gemini unavailable, falling back to OpenRouter')
+    return generateWithOpenRouter(prompt)
+  }
+
+  throw lastErr
 }
 
 export async function generatePostmortem(
@@ -213,14 +287,8 @@ Use this exact structure:
 }
 `
 
-  // Gemini call: JSON.parse and Zod errors bubble up to the route handler
-  const result = await ai.models.generateContent({
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    contents: prompt,
-    config: { responseMimeType: 'application/json' },
-  })
-
-  const text = result.text || ''
+  // AI call with retry and fallbacks. JSON.parse and Zod errors bubble up to the route handler
+  const text = await generateWithRetry(ai, prompt)
 
   // Strip markdown fences if present, then extract the outermost JSON object
   const cleaned = text
@@ -238,7 +306,7 @@ Use this exact structure:
   const rawParsed = JSON.parse(jsonText)
   const validated = PostmortemSchema.parse(rawParsed)
 
-  // Application owns severity, not Gemini
+  // Application owns severity, not the AI
   return {
     ...validated,
     severity: severityResult.level,

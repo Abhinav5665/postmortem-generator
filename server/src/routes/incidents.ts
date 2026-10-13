@@ -251,7 +251,13 @@ const updatedIncident = await prisma.incident.findUnique({
 res.status(201).json({ success: true, data: updatedIncident })
     
 
-    } catch (error) {
+        } catch (error) {
+      const status = (error as { status?: number })?.status
+      if (status === 503 || status === 429) {
+        res.status(503).json({ error: 'The AI service is busy right now. Please try again in a minute.' })
+        return
+      }
+
       if (error instanceof SyntaxError) {
         res.status(502).json({ error: 'AI returned an invalid response, please try again' })
       } else if (error instanceof ZodError) {

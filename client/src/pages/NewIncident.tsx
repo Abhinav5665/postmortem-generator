@@ -128,7 +128,8 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
       navigate(`/incidents/${incidentId}`)
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : 'Failed to generate postmortem. Please try again.'
+  (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+  (err instanceof Error ? err.message : 'Failed to generate postmortem. Please try again.')
       setError(message)
     } finally {
       setIsLoading(false)
