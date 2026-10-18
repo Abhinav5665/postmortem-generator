@@ -30,10 +30,17 @@ export async function authMiddleware(
     return
   }
 
+  // 1. Token problems are real auth failures: 401
+  let decoded: { id: string }
   try {
-    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { id: string }
+    decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { id: string }
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired token' })
+    return
+  }
 
-    // Load the current user so removed users and role changes take effect immediately
+  // 2. Database problems are not the user's fault: 503, never 401
+  try {
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: { id: true, email: true, name: true, role: true },
@@ -47,7 +54,8 @@ export async function authMiddleware(
     req.user = user
     next()
   } catch (error) {
-    res.status(401).json({ error: 'Invalid or expired token' })
+    console.error('Auth lookup failed (database unreachable?):', (error as Error).message)
+    res.status(503).json({ error: 'Service temporarily unavailable. Please try again.' })
   }
 }
 

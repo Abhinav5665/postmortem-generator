@@ -125,6 +125,22 @@ if (teamMembers) {
       // Run all services
       const durationMinutes = severityScorer.getDurationMinutes(start, end)
       const parsedLogs = logParserService.parseLogs(logsText)
+      // Reject logs dated far outside the incident window (usually a wrong date in the form)
+const MARGIN_MS = 12 * 60 * 60 * 1000
+const stamped = parsedLogs.logs.filter(l => l.timestamp)
+if (
+  stamped.length > 0 &&
+  !stamped.some(
+    l =>
+      l.timestamp!.getTime() >= start.getTime() - MARGIN_MS &&
+      l.timestamp!.getTime() <= end.getTime() + MARGIN_MS
+  )
+) {
+  res.status(400).json({
+    error: 'Your logs are dated outside the incident start and end dates. Check the dates in the form.',
+  })
+  return
+}
       const timeline = timelineService.buildTimeline(parsedLogs.logs, start, end)
       // Multipart form values arrive as strings
 // Multipart form values arrive as strings

@@ -12,41 +12,6 @@
 *::-webkit-scrollbar {
   display: none;
 }
-@media print {
-  @page { size: A4; margin: 14mm; }
-
-  html, body { background: #fff !important; }
-  * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .no-print { display: none !important; }
-
-  .postmortem-page {
-    padding: 0 !important;
-    max-width: 100% !important;
-    min-height: 0 !important;
-    background: #fff !important;
-  }
-
-  /* Keep each card whole on one page */
-  .postmortem-page > * {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  /* Long cards may split, but never in the middle of an entry */
-  .postmortem-page > .print-break-ok {
-    break-inside: auto;
-    page-break-inside: auto;
-  }
-  .timeline-event { break-inside: avoid; page-break-inside: avoid; }
-
-  .postmortem-page .shadow-sm { box-shadow: none !important; }
-  h1, h2 { break-after: avoid; }
-}
-
 
 @theme inline {
     --font-heading: var(--font-sans);
@@ -170,4 +135,62 @@
   html {
     @apply font-sans;
     }
+}
+
+/* ============================================================
+   PRINT / EXPORT PDF
+   Kept at the bottom so it overrides everything above.
+   ============================================================ */
+@media print {
+  @page { size: A4; margin: 14mm; }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Unlock the app layout so content can flow across several pages */
+  html, body, #root {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .h-screen, .min-h-screen, .overflow-hidden, .overflow-auto, .overflow-y-auto {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .fixed, .sticky { position: static !important; }
+
+  /* Hide sidebar, navigation and anything marked no-print */
+  .no-print, aside, nav { display: none !important; }
+
+  /* Postmortem page layout */
+  .postmortem-page {
+    padding: 0 !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    background: #fff !important;
+  }
+  .postmortem-page .shadow-sm { box-shadow: none !important; }
+
+  /* Keep each card whole on one page */
+  .postmortem-page > * {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* The timeline may flow across pages, but never splits inside an entry */
+  .postmortem-page > .print-break-ok {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  .timeline-event {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  h1, h2 { break-after: avoid; }
 }
