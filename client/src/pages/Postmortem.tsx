@@ -427,7 +427,7 @@ export default function Postmortem() {
       {/* Impact metrics */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-xs font-medium text-slate-500 mb-1">Downtime</p>
+          <p className="text-xs font-medium text-slate-500 mb-1">Incident Duration</p>
           <p className="text-2xl font-bold text-slate-900">{postmortem.impactMetrics?.downtime ?? "Unknown"}</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">

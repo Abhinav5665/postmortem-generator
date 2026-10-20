@@ -15,6 +15,16 @@ function extractFirstTimestamp(logs: string): string {
   return ''
 }
 
+function openPicker(e: React.MouseEvent<HTMLInputElement>) {
+  e.preventDefault() // stops the field from taking focus, so no segment gets highlighted
+  try {
+    e.currentTarget.showPicker()
+  } catch {
+    e.currentTarget.focus() // older browsers: normal behavior
+  }
+}
+
+
 
   // ... component code
 
@@ -203,6 +213,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         type="date"
         name="startDate"
         value={form.startTime.split("T")[0] || ""}
+          onClick={openPicker}
         onChange={e => setForm(prev => ({
           ...prev,
           startTime: `${e.target.value}T${prev.startTime.split("T")[1] || "00:00"}`
@@ -213,6 +224,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         type="time"
         name="startTimeOnly"
         value={form.startTime.split("T")[1] || ""}
+        onClick={openPicker}
         onChange={e => setForm(prev => ({
           ...prev,
           startTime: `${prev.startTime.split("T")[0] || ""}T${e.target.value}`
@@ -230,6 +242,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         type="date"
         name="endDate"
         value={form.endTime.split("T")[0] || ""}
+        onClick={openPicker}
         onChange={e => setForm(prev => ({
           ...prev,
           endTime: `${e.target.value}T${prev.endTime.split("T")[1] || "00:00"}`
@@ -240,6 +253,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
         type="time"
         name="endTimeOnly"
         value={form.endTime.split("T")[1] || ""}
+        onClick={openPicker}
         onChange={e => setForm(prev => ({
           ...prev,
           endTime: `${prev.endTime.split("T")[0] || ""}T${e.target.value}`
