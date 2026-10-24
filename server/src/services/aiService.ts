@@ -76,7 +76,9 @@ const templateInstructions: Record<string, string> = {
 - Explain the scope and potential blast radius based only on available evidence
 - Describe containment, remediation, or recovery steps that were actually taken
 - Suggest security hardening measures directly related to the incident
-- Do not claim a breach, exposure, or compromised data without supporting evidence`,
+- Do not claim a breach, exposure, or compromised data without supporting evidence
+- Never state that nothing was accessed or exposed. Say that no evidence was found, and only if the engineer notes say so`,
+
 
   Performance: `PERFORMANCE TEMPLATE FOCUS:
 - Identify the specific performance issue, such as latency, CPU, memory, throughput, or resource exhaustion, if supported by the evidence
@@ -106,34 +108,50 @@ function isRetryable(err: unknown): boolean {
 // Last-resort fallback: OpenRouter (OpenAI-compatible API)
 async function generateWithOpenRouter(prompt: string): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY
-  const model = process.env.OPENROUTER_MODEL
-  if (!apiKey || !model) throw new Error('OpenRouter is not configured')
+  const models = (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL || '')
+    .split(',')
+    .map(m => m.trim())
+    .filter(Boolean)
+  if (!apiKey || models.length === 0) throw new Error('OpenRouter is not configured')
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2,
-      max_tokens: 6000, // reasoning models spend tokens thinking before the answer
-    }),
-    signal: AbortSignal.timeout(90_000),
-  })
+  let lastErr: unknown
+  for (const model of models) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.2,
+          max_tokens: 8000,
+        }),
+        signal: AbortSignal.timeout(90_000),
+      })
 
-  if (!res.ok) {
-    const err = new Error(`OpenRouter error ${res.status}`) as Error & { status?: number }
-    err.status = res.status
-    throw err
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        console.warn(`OpenRouter ${model} failed:`, res.status, body.slice(0, 200))
+        const err = new Error(`OpenRouter ${model}: ${res.status}`) as Error & { status?: number }
+        err.status = res.status
+        throw err
+      }
+
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string | null } }[]
+      }
+      const content = data.choices?.[0]?.message?.content
+      if (content) return content
+      throw new Error(`OpenRouter ${model}: empty response`)
+    } catch (err) {
+       console.warn(`OpenRouter ${model} error:`, (err as Error).message)
+      lastErr = err
+    }
   }
-
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string | null } }[]
-  }
-  return data.choices?.[0]?.message?.content || ''
+  throw lastErr
 }
 
 // Two tries on the primary Gemini model, one on the fallback Gemini model,
@@ -154,6 +172,11 @@ async function generateWithRetry(ai: GoogleGenAI, prompt: string): Promise<strin
       })
       return result.text || ''
     } catch (err) {
+       console.warn(
+    `Gemini attempt ${i + 1} failed:`,
+    (err as { status?: number })?.status,
+    String((err as Error)?.message).slice(0, 200)
+  )
       lastErr = err
       if (!isRetryable(err)) throw err
       if (i < models.length - 1) await sleep(1500 * 2 ** i)
@@ -161,7 +184,7 @@ async function generateWithRetry(ai: GoogleGenAI, prompt: string): Promise<strin
   }
 
   // Gemini is busy or down: try OpenRouter if it is configured
-  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_MODEL) {
+  if (process.env.OPENROUTER_API_KEY && (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL)) {
     console.warn('Gemini unavailable, falling back to OpenRouter')
     return generateWithOpenRouter(prompt)
   }
@@ -234,14 +257,21 @@ CRITICAL RULES:
 - Do NOT invent due dates — always return "Not specified" for dueDate
 - For wentWell — only write what is directly supported by the logs or engineer notes. If there is no evidence of what went well, return "Not specified"
 - Use the engineer-reported impact exactly as given. Never contradict it.
+- If the logs show a long gap between the first error and the first alert, include one action item about faster detection. Only state times that appear in the logs.
+- Write times in plain form such as "20:00 UTC", never as ISO strings with milliseconds
+- If the incident was declared long after the first error, include one action item about faster escalation, using exact times from the logs
+- Never state that nothing was accessed or exposed. Say that no evidence was found, and only if the engineer notes say so
+- When stating how long something took or how large a gap was, calculate it from the log timestamps, not from durations written inside log messages
+- If a time in the engineer notes is approximate ("about", "around"), keep it approximate. Never present it as an exact time
+- Do not say something happened automatically or without manual intervention unless the logs or notes say so
 
 ${templateFocus ? `\nTEMPLATE FOCUS (${templateType} incident):\n${templateFocus}\n` : ''}
 
 INCIDENT DETAILS:
 Service: ${serviceName}
 Duration: ${durationMinutes} minutes
-Start: ${startTime.toISOString()}
-End: ${endTime.toISOString()}
+Start: ${startTime.toISOString().substring(0, 16).replace('T', ' ')} UTC
+End: ${endTime.toISOString().substring(0, 16).replace('T', ' ')} UTC
 Severity (system determined): ${severityResult.level} — ${severityResult.reasoning}
 ${impactLines ? `\nENGINEER-REPORTED IMPACT (treat as confirmed fact):\n${impactLines}\n` : ''}
 
@@ -271,7 +301,7 @@ Use this exact structure:
   "impact": "What broke, who was affected, and for how long based only on available data",
   "impactMetrics": {
     "affectedUsers": "Only if determinable from logs or notes, otherwise Not specified",
-    "failureRate": "Only if determinable from logs or notes, otherwise Not specified",
+    "failureRate": "Short value only, such as 30%, if determinable from logs or notes, otherwise Not specified",
     "downtime": "${durationMinutes} minutes"
   },
   "resolution": "How the incident was resolved based on engineer notes and logs, or Not specified",

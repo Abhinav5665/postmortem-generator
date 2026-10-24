@@ -14,46 +14,46 @@ export function buildTimeline(
   alertStart: Date,
   alertEnd: Date
 ): TimelineEvent[] {
-  const events: TimelineEvent[] = []
+  const keyed: { event: TimelineEvent; sortKey: number; order: number }[] = []
+  let order = 0
 
-  events.push({
-    time: alertStart.toISOString(),
-    event: 'Alert triggered — incident begins',
-    type: 'ALERT_START',
+  keyed.push({
+    event: { time: alertStart.toISOString(), event: 'Incident begins', type: 'ALERT_START' },
+    sortKey: alertStart.getTime(),
+    order: order++,
   })
 
+  // Lines without a timestamp inherit the time of the line before them,
+  // so they stay in their original position instead of sinking to the end
+  let lastKey = alertStart.getTime()
   let infoCount = 0
 
   for (const log of parsedLogs) {
-    if (log.level === 'ERROR' || log.level === 'FATAL' || log.level === 'WARN') {
-      events.push({
+    if (log.timestamp) lastKey = log.timestamp.getTime()
+
+    const isMain = log.level === 'ERROR' || log.level === 'FATAL' || log.level === 'WARN'
+    const isInfo = log.level === 'INFO' && infoCount < MAX_INFO_EVENTS
+    if (!isMain && !isInfo) continue
+    if (isInfo) infoCount++
+
+    keyed.push({
+      event: {
         time: log.timestamp ? log.timestamp.toISOString() : null,
         event: log.message || log.raw,
-        type: log.level,
-      })
-    } else if (log.level === 'INFO' && infoCount < MAX_INFO_EVENTS) {
-      // INFO lines often hold the fix steps (restarts, config changes, recovery)
-      events.push({
-        time: log.timestamp ? log.timestamp.toISOString() : null,
-        event: log.message || log.raw,
-        type: 'INFO',
-      })
-      infoCount++
-    }
+        type: log.level as TimelineEvent['type'],
+      },
+      sortKey: lastKey,
+      order: order++,
+    })
   }
 
-  events.push({
-    time: alertEnd.toISOString(),
-    event: 'Incident resolved',
-    type: 'ALERT_END',
+  keyed.push({
+    event: { time: alertEnd.toISOString(), event: 'Incident resolved', type: 'ALERT_END' },
+    sortKey: alertEnd.getTime(),
+    order: order++,
   })
 
-  // Sort by time. Events without a timestamp go last.
-  // Array.sort is stable, so ties keep insertion order (ALERT_START first, ALERT_END last).
-  return events.sort((a, b) => {
-    if (!a.time && !b.time) return 0
-    if (!a.time) return 1
-    if (!b.time) return -1
-    return new Date(a.time).getTime() - new Date(b.time).getTime()
-  })
+  return keyed
+    .sort((a, b) => a.sortKey - b.sortKey || a.order - b.order)
+    .map(k => k.event)
 }

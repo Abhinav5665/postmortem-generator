@@ -555,7 +555,10 @@ export default function Postmortem() {
                 )}
               </div>
               <div className="pb-3">
-                <p className="text-xs text-slate-400 mb-0.5">{formatUtc(event.time, 'time')}</p>
+                <p className="text-xs text-slate-400 mb-0.5">
+  {event.time ? formatUtc(event.time, 'time') : 'No timestamp'}
+</p>
+                
                 <p className="text-sm text-slate-700">{event.event}</p>
               </div>
             </div>
