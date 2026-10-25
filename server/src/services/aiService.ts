@@ -35,19 +35,28 @@ export type PostmortemResult = z.infer<typeof PostmortemSchema> & {
 }
 
 function selectImportantLogs(parsedLogs: ParsedLogsResult, limit = 50): string {
-  const fatal   = parsedLogs.logs.filter(l => l.level === 'FATAL')
-  const errors  = parsedLogs.logs.filter(l => l.level === 'ERROR')
-  const warns   = parsedLogs.logs.filter(l => l.level === 'WARN')
-  const unknown = parsedLogs.logs.filter(l => l.level === 'UNKNOWN')
+  const normalize = (s: string) =>
+    s.toLowerCase().replace(/\b\w*\d\w*\b/g, '#').replace(/\s+/g, ' ').trim()
 
-  const selected = [
-    ...fatal,
-    ...errors,
-    ...warns,
-    ...unknown,
-  ].slice(0, limit)
-
-  return selected.map(log => log.raw).join('\n')
+  const lines: string[] = []
+  for (const level of ['FATAL', 'ERROR', 'WARN', 'UNKNOWN'] as const) {
+    const groups = new Map<string, ParsedLogsResult['logs']>()
+    for (const log of parsedLogs.logs) {
+      if (log.level !== level) continue
+      const key = normalize(log.message || log.raw)
+      groups.set(key, [...(groups.get(key) ?? []), log])
+    }
+    for (const g of groups.values()) {
+      if (g.length <= 3) {
+        lines.push(...g.map(l => l.raw))
+      } else {
+        lines.push(g[0].raw)
+        lines.push(`... ${g.length - 2} similar lines omitted ...`)
+        lines.push(g[g.length - 1].raw)
+      }
+    }
+  }
+  return lines.slice(0, limit).join('\n')
 }
 
 const templateInstructions: Record<string, string> = {
@@ -248,6 +257,7 @@ Analyze the incident data below and generate a complete, specific postmortem.
 Be specific — use actual error messages, service names, and timestamps from the logs.
 Do NOT be generic. If you see a database timeout in the logs, say that specifically.
 
+
 CRITICAL RULES:
 - Never invent metrics, user counts, failure rates, root causes, or any data not supported by the evidence
 - If something cannot be determined from the logs or notes, return "Not specified"
@@ -257,13 +267,17 @@ CRITICAL RULES:
 - Do NOT invent due dates — always return "Not specified" for dueDate
 - For wentWell — only write what is directly supported by the logs or engineer notes. If there is no evidence of what went well, return "Not specified"
 - Use the engineer-reported impact exactly as given. Never contradict it.
-- If the logs show a long gap between the first error and the first alert, include one action item about faster detection. Only state times that appear in the logs.
 - Write times in plain form such as "20:00 UTC", never as ISO strings with milliseconds
+- If a time or number in the engineer notes is approximate ("about", "around"), keep it approximate. Never present it as exact
+   - If there is a long gap between the first error and the first alert (or the time the team first noticed the problem, if no alert is logged), include one action item about faster detection, using exact times from the logs and approximate times from the notes
 - If the incident was declared long after the first error, include one action item about faster escalation, using exact times from the logs
+- Calculate durations and gaps from log timestamps, not from durations written inside log messages
 - Never state that nothing was accessed or exposed. Say that no evidence was found, and only if the engineer notes say so
-- When stating how long something took or how large a gap was, calculate it from the log timestamps, not from durations written inside log messages
-- If a time in the engineer notes is approximate ("about", "around"), keep it approximate. Never present it as an exact time
 - Do not say something happened automatically or without manual intervention unless the logs or notes say so
+- Do not attribute a past action to a specific person or role unless the notes say so
+- Avoid subjective words such as "promptly", "quickly" or "rapidly" unless the timestamps clearly support them
+- Use the word "outage" only if the engineer reported the service as fully unavailable; otherwise say "degradation" or "failures"
+- When a date is needed, write it as "25 Oct 00:05 UTC" or "2026-10-25 00:05 UTC", with UTC once
 
 ${templateFocus ? `\nTEMPLATE FOCUS (${templateType} incident):\n${templateFocus}\n` : ''}
 
@@ -300,8 +314,8 @@ Use this exact structure:
   "rootCause": "Specific root cause from logs and notes, or Not specified if unclear",
   "impact": "What broke, who was affected, and for how long based only on available data",
   "impactMetrics": {
-    "affectedUsers": "Only if determinable from logs or notes, otherwise Not specified",
-    "failureRate": "Short value only, such as 30%, if determinable from logs or notes, otherwise Not specified",
+     "affectedUsers": "Short value such as 250 or about 250, only if determinable from logs or notes, otherwise Not specified",
+    "failureRate": "Short value such as 30%, only if determinable from logs or notes, otherwise Not specified",
     "downtime": "${durationMinutes} minutes"
   },
   "resolution": "How the incident was resolved based on engineer notes and logs, or Not specified",
@@ -309,7 +323,7 @@ Use this exact structure:
   "actionItems": [
     {
       "task": "Specific preventive action directly related to the root cause",
-      "owner": "Team or person responsible, use participant names if available",
+            "owner": "A name from the TEAM list (name only, no role), or the team name if no names are available",
       "dueDate": "Not specified",
       "completed": false
     }
@@ -341,4 +355,8 @@ Use this exact structure:
     ...validated,
     severity: severityResult.level,
   }
+}
+export async function generateText(prompt: string): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
+  return generateWithRetry(ai, prompt)
 }

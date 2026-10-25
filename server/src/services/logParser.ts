@@ -27,7 +27,7 @@ const KV_LEVEL_RE = new RegExp(`\\blevel=["']?(${LEVELS})["']?`, 'i')
 const EARLY_LEVEL_RE = new RegExp(`^((?:\\S+\\s+){0,3}?)(${LEVELS})\\b:?`)
 
 const ISO_RE =
-  /\[?(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(\.\d+)?\s?(Z|[+-]\d{2}:?\d{2})?\]?/
+  /\[?(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})([.,]\d+)?\s?(Z|[+-]\d{2}:?\d{2})?\]?/
 const SYSLOG_RE = /\[?([A-Za-z]{3})\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\]?/
 
 function normalizeLevel(token: string): Level {
@@ -43,7 +43,8 @@ interface TimestampMatch {
 function extractTimestamp(line: string): TimestampMatch | null {
   const iso = line.match(ISO_RE)
   if (iso) {
-    const [text, datePart, timePart, frac = '', tz = 'Z'] = iso
+    const [text, datePart, timePart, fracRaw = '', tz = 'Z'] = iso
+const frac = fracRaw.replace(',', '.')
     // Timestamps without a timezone are treated as UTC (the form does the same)
     const offset = tz.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
     const date = new Date(`${datePart}T${timePart}${frac}${offset}`)

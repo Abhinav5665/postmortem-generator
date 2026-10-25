@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express'
-import { ZodError } from 'zod'
+
 import { prisma } from '../lib/prisma'
 import { authMiddleware, AuthRequest } from '../middleware/authMiddleware'
 import * as logParserService from '../services/logParser'
@@ -11,7 +11,7 @@ import { validateBody, IncidentSchema } from '../middleware/validate'
 import * as slackService from '../services/slackService'
 import * as recurringDetector from '../services/recurringDetector'
 import type { SeverityResult } from '../services/severityScorer'
-
+import { z, ZodError } from 'zod'
 
 
 
@@ -121,6 +121,15 @@ if (teamMembers) {
     return
   }
 }
+const parsedTeam = z
+  .array(z.object({ name: z.string().min(1).max(100), role: z.string().min(1).max(100) }))
+  .max(20)
+  .safeParse(teamMembersList)
+if (!parsedTeam.success) {
+  res.status(400).json({ error: 'teamMembers must be a list of { name, role }' })
+  return
+}
+teamMembersList = parsedTeam.data
 
       // Run all services
       const durationMinutes = severityScorer.getDurationMinutes(start, end)
@@ -245,6 +254,7 @@ try {
     postmortemResult.rootCause,
     postmortemResult.summary
   )
+     console.log('Recurring check result:', JSON.stringify(recurringResult))
 
   if (recurringResult.isRecurring) {
     await prisma.postmortem.update({

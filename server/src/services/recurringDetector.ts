@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
-import { GoogleGenAI } from '@google/genai'
+   import { generateText } from './aiService'
 
 export interface RecurringIncidentResult {
   isRecurring: boolean
@@ -71,7 +71,7 @@ Summary: ${inc.postmortem?.summary || 'Not specified'}
   // If a previous postmortem incorrectly identified a root cause, that inference
   // flows into this detector. Future improvement: distinguish observed vs inferred.
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
+  
 
   const prompt = `
 You are analyzing whether a series of incidents for the same service share a meaningful recurring pattern.
@@ -107,14 +107,11 @@ Respond ONLY with valid JSON, no markdown, no backticks:
 }
 `
 
-  const result = await ai.models.generateContent({
-    model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-    contents: prompt,
-  })
-
-  const text = result.text || ''
-  const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim()
-
+    const text = await generateText(prompt)
+   const stripped = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+   const start = stripped.indexOf('{')
+   const end = stripped.lastIndexOf('}')
+   const cleaned = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped
   try {
     const parsed = RecurringIncidentSchema.parse(JSON.parse(cleaned))
     return {

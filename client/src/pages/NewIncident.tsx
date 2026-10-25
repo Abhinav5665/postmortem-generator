@@ -4,6 +4,7 @@ import { incidentsApi } from '../lib/api'
 import type { TeamMember } from '../lib/api'
 
 
+
 // ... imports
 
 function extractFirstTimestamp(logs: string): string {
@@ -97,6 +98,13 @@ function updateTeamMember(index: number, field: 'name' | 'role', value: string) 
       setError('Please upload a log file')
       return
     }
+    const incomplete = teamMembers.find(
+  m => (m.name.trim() && !m.role) || (!m.name.trim() && m.role)
+)
+if (incomplete) {
+  setError('Each team member needs both a name and a role. Fill in the missing one or remove the row.')
+  return
+}
 
     
 
@@ -119,7 +127,9 @@ if (form.serviceUnavailable) formData.append('serviceUnavailable', 'true')
 if (form.confirmedCompromise) formData.append('confirmedCompromise', 'true')
 if (form.dataBreach) formData.append('dataBreach', 'true')
 
-      const validTeamMembers = teamMembers.filter(m => m.name && m.role)
+      const validTeamMembers = teamMembers
+  .filter(m => m.name.trim() && m.role)
+  .map(m => ({ name: m.name.trim(), role: m.role }))
 if (validTeamMembers.length > 0) {
   formData.append('teamMembers', JSON.stringify(validTeamMembers))
 }
