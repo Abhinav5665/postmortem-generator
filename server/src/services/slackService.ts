@@ -21,7 +21,7 @@ export async function sendPostmortemToSlack(
   data: SlackNotificationData,
   webhookUrl: string  // ← passed in, not read from env
 ): Promise<void> {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+  const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173'
 
   if (!webhookUrl) {
     throw new Error('Slack webhook URL is not configured')
