@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { invitationsApi } from '../lib/api'
+import { useQueryClient } from '@tanstack/react-query'
 
 export default function AcceptInvite() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') || ''
 
@@ -46,7 +48,7 @@ export default function AcceptInvite() {
   async function handleSubmit() {
     setError(null)
 
-    if (!form.name) {
+    if (!form.name.trim()) {
       setError('Name is required')
       return
     }
@@ -68,6 +70,7 @@ export default function AcceptInvite() {
         name: form.name,
         password: form.password,
       })
+      queryClient.clear()
       navigate('/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to accept invitation')
@@ -123,7 +126,7 @@ export default function AcceptInvite() {
           Accept Invitation
         </h1>
         <p className="text-xs text-slate-500 mb-1">
-          You\'ve been invited to join PostmortemAI
+          You&apos;ve been invited to join PostmortemAI
         </p>
         <p className="text-xs text-teal-700 font-semibold bg-teal-50 border border-teal-100 inline-flex px-2.5 py-1 rounded-full mb-6">
           {inviteData?.email}
@@ -167,6 +170,7 @@ export default function AcceptInvite() {
               name="confirmPassword"
               value={form.confirmPassword}
               onChange={handleChange}
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
               placeholder="••••••••"
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-50 focus:border-teal-300 transition-all"
             />

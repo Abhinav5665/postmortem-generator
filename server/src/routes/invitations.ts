@@ -6,8 +6,8 @@ import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/authMiddleware'
-import { sendInvitationEmail } from '../services/emailService'
 
+import { sendInvitationEmail, buildInviteUrl } from '../services/emailService'
 const router = Router()
 
 // Tokens are 256-bit random, so a fast deterministic hash is enough
@@ -86,9 +86,16 @@ router.post(
         },
       })
 
-      await sendInvitationEmail(email, token, req.user!.name)
+      const emailSent = await sendInvitationEmail(email, token, req.user!.name)
 
-      res.status(201).json({ success: true, message: 'Invitation sent successfully' })
+res.status(201).json({
+  success: true,
+  emailSent,
+  inviteUrl: buildInviteUrl(token), // only the admin who created the invite sees this
+  message: emailSent
+    ? 'Invitation sent successfully'
+    : 'Invitation created. Email could not be sent, so share the link manually.',
+})
     } catch (error) {
       console.error('Invitation error:', error)
       res.status(500).json({ error: 'Failed to send invitation' })

@@ -8,6 +8,8 @@ export default function Team() {
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'MEMBER' })
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+const [copied, setCopied] = useState(false)
 
   const { data: members, isLoading: loadingMembers } = useQuery({
     queryKey: ['team'],
@@ -21,14 +23,18 @@ export default function Team() {
 
   const inviteMutation = useMutation({
     mutationFn: () => invitationsApi.send(inviteForm),
-    onSuccess: () => {
-      setInviteSuccess(`Invitation sent to ${inviteForm.email}`)
-      setInviteForm({ email: '', role: 'MEMBER' })
-      setShowInviteForm(false)
-      setInviteError(null)
-      queryClient.invalidateQueries({ queryKey: ['invitations'] })
-      setTimeout(() => setInviteSuccess(null), 3000)
-    },
+   onSuccess: (res) => {
+  const { emailSent, inviteUrl } = res.data
+  if (emailSent) {
+    setInviteSuccess(`Invitation emailed to ${inviteForm.email}`)
+    setTimeout(() => setInviteSuccess(null), 3000)
+  }
+  setInviteLink(emailSent ? null : inviteUrl ?? null)
+  setInviteForm({ email: '', role: 'MEMBER' })
+  setShowInviteForm(false)
+  setInviteError(null)
+  queryClient.invalidateQueries({ queryKey: ['invitations'] })
+},
     onError: (err: any) => {
       setInviteError(err.response?.data?.error || 'Failed to send invitation')
     },
@@ -60,6 +66,17 @@ export default function Team() {
     (inv: any) => !inv.acceptedAt && new Date(inv.expiresAt) > new Date()
   )
 
+  async function copyInviteLink() {
+  if (!inviteLink) return
+  try {
+    await navigator.clipboard.writeText(inviteLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  } catch {
+    // Clipboard blocked: the user can still select the text in the box
+  }
+}
+
  return (
     <div className="p-8 max-w-4xl mx-auto w-full bg-slate-50 min-h-screen">
       <div className="flex items-center justify-between mb-8">
@@ -89,6 +106,34 @@ export default function Team() {
           <p className="text-sm font-medium text-emerald-700">{inviteSuccess}</p>
         </div>
       )}
+
+      {inviteLink && (
+  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+    <p className="text-sm font-medium text-amber-800 mb-2">
+      Email isn&apos;t set up, so share this link with the invitee (valid for 48 hours):
+    </p>
+    <div className="flex gap-2">
+      <input
+        readOnly
+        value={inviteLink}
+        onFocus={e => e.target.select()}
+        className="flex-1 bg-white border border-amber-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none"
+      />
+      <button
+        onClick={copyInviteLink}
+        className="text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl transition-colors"
+      >
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+      <button
+        onClick={() => setInviteLink(null)}
+        className="text-xs font-medium text-amber-700 px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors"
+      >
+        Dismiss
+      </button>
+    </div>
+  </div>
+)}
 
       {/* Invite Form */}
       {showInviteForm && (
