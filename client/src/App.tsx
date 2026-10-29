@@ -91,7 +91,7 @@ function Sidebar({ user }: { user: User }) {
 }
 
 function ProtectedLayout() {
-  const navigate = useNavigate()
+  
 
   const { data: user, isLoading, isError } = useQuery({
     queryKey: ['me'],

@@ -16,7 +16,7 @@ const [copied, setCopied] = useState(false)
     queryFn: () => teamApi.list().then(res => res.data.data),
   })
 
-  const { data: invitations, isLoading: loadingInvitations } = useQuery({
+  const { data: invitations } = useQuery({
     queryKey: ['invitations'],
     queryFn: () => invitationsApi.list().then(res => res.data.data),
   })
