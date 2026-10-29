@@ -140,20 +140,29 @@ if (validTeamMembers.length > 0) {
         formData.append('logFile', logFile)
       }
 
-      console.log('startTime:', new Date(form.startTime + ':00Z').toISOString())
-console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
+
 
       const response = await incidentsApi.create(formData)
       const incidentId = response.data.data.id
       navigate(`/incidents/${incidentId}`)
-    } catch (err: unknown) {
-      const message =
-  (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-  (err instanceof Error ? err.message : 'Failed to generate postmortem. Please try again.')
-      setError(message)
-    } finally {
-      setIsLoading(false)
-    }
+   } catch (err: unknown) {
+  const axiosErr = err as {
+    response?: { data?: { error?: string } }
+    code?: string
+    message?: string
+  }
+  const serverMessage = axiosErr.response?.data?.error
+
+  const message =
+    serverMessage ||
+    (axiosErr.response === undefined
+      ? 'The connection dropped before the server answered. The incident may still have been created, so check the dashboard before trying again.'
+      : axiosErr.message || 'Failed to generate postmortem. Please try again.')
+
+  setError(message)
+} finally {
+  setIsLoading(false)
+}
   }
 
  return (
@@ -527,7 +536,7 @@ console.log('endTime:', new Date(form.endTime + ':00Z').toISOString())
 
         {isLoading && (
           <p className="text-center text-xs text-slate-400">
-            This usually takes 10–15 seconds
+            This usually takes 10–15 seconds,  longer if the AI service is busy
           </p>
         )}
       </div>

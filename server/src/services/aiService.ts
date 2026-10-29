@@ -115,7 +115,7 @@ function isRetryable(err: unknown): boolean {
 }
 
 // Last-resort fallback: OpenRouter (OpenAI-compatible API)
-async function generateWithOpenRouter(prompt: string): Promise<string> {
+async function generateWithOpenRouter(prompt: string, startedAt = Date.now()): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY
   const models = (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL || '')
     .split(',')
@@ -125,6 +125,8 @@ async function generateWithOpenRouter(prompt: string): Promise<string> {
 
   let lastErr: unknown
   for (const model of models) {
+    const remaining = 60_000 - (Date.now() - startedAt)
+  if (remaining < 5_000) break
     try {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -138,7 +140,7 @@ async function generateWithOpenRouter(prompt: string): Promise<string> {
           temperature: 0.2,
           max_tokens: 8000,
         }),
-        signal: AbortSignal.timeout(90_000),
+        signal: AbortSignal.timeout(Math.min(30_000, remaining)),
       })
 
       if (!res.ok) {
@@ -160,16 +162,19 @@ async function generateWithOpenRouter(prompt: string): Promise<string> {
       lastErr = err
     }
   }
-  throw lastErr
+  const err = new Error('AI providers unavailable') as Error & { status?: number }
+err.status = 503
+throw lastErr ?? err
 }
 
 // Two tries on the primary Gemini model, one on the fallback Gemini model,
 // then OpenRouter if configured. Non-retryable errors (bad key, bad request)
 // are thrown immediately.
 async function generateWithRetry(ai: GoogleGenAI, prompt: string): Promise<string> {
+  const startedAt = Date.now()
   const primary = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
   const fallback = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash'
-  const models = [primary, primary, fallback]
+  const models = [primary, fallback,primary] // try primary twice, then fallback once
 
   let lastErr: unknown
   for (let i = 0; i < models.length; i++) {
@@ -188,14 +193,14 @@ async function generateWithRetry(ai: GoogleGenAI, prompt: string): Promise<strin
   )
       lastErr = err
       if (!isRetryable(err)) throw err
-      if (i < models.length - 1) await sleep(1500 * 2 ** i)
+      if (i < models.length - 1) await sleep(1000 * (i + 1))
     }
   }
 
   // Gemini is busy or down: try OpenRouter if it is configured
   if (process.env.OPENROUTER_API_KEY && (process.env.OPENROUTER_MODELS || process.env.OPENROUTER_MODEL)) {
     console.warn('Gemini unavailable, falling back to OpenRouter')
-    return generateWithOpenRouter(prompt)
+    return generateWithOpenRouter(prompt, startedAt)
   }
 
   throw lastErr
