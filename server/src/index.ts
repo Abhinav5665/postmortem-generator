@@ -10,6 +10,7 @@ import authRoutes from './routes/auth'
 import invitationRoutes from './routes/invitations'
 import teamRoutes from './routes/team'
 import { authMiddleware } from './middleware/authMiddleware'
+import { prisma } from './lib/prisma'
 
 const app = express()
 if (process.env.NODE_ENV === 'production') {
@@ -41,6 +42,15 @@ app.use('/api/team', authMiddleware, teamRoutes)
 
 app.get('/health', (req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', message: 'Postmortem Generator API is running' })
+})
+
+app.get('/health/db', async (req: express.Request, res: express.Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    res.json({ status: 'ok' })
+  } catch {
+    res.status(503).json({ status: 'database unreachable' })
+  }
 })
 
 app.listen(PORT, () => {
