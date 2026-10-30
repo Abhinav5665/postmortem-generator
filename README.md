@@ -8,6 +8,41 @@ No templates. No manual formatting. Paste your logs and get a professional draft
 
 ---
 
+## 🌐 Live Demo
+
+**https://postmortem-generator-gilt.vercel.app**
+
+| | |
+|---|---|
+| **Email** | `<testpostmortem@gmail.com>` |
+| **Password** | `<testpostmortem>` |
+
+This is a **member** account. You can create incidents, edit postmortems and export PDFs. Admin features (team management, Slack settings) are not available to it.
+
+- The first load can take up to a minute, because the free hosting sleeps when idle.
+- Generating a postmortem takes 15 to 60 seconds, longer if the AI provider is busy.
+- All incidents in the demo are synthetic test data. Please don't enter real or sensitive logs.
+
+### Why invitation emails are off in the live demo
+
+The demo runs on Render's free tier, which blocks outbound SMTP ports, so the server can't send email there. Instead, when an admin invites someone, the app shows a **copy-able invitation link**. Everything else about invitations (hashed tokens, 48-hour expiry, role assignment) works the same.
+
+### Enabling invitation emails on your own deployment
+
+Add these to `server/.env` (or your host's environment variables). Any SMTP provider works, for example Gmail with an app password:
+
+```env
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=587
+SMTP_USER="you@gmail.com"
+SMTP_PASS="your_app_password"
+SMTP_FROM="PostmortemAI <you@gmail.com>"
+```
+
+If these are missing or sending fails, the app falls back to showing the invitation link. This needs a host that allows outbound SMTP, such as a paid Render instance, a VPS, or your local machine.
+
+---
+
 ## ✨ Features
 
 - **AI-generated postmortems** — summary, root cause, impact, resolution, what went well and action items, from raw logs and engineer notes

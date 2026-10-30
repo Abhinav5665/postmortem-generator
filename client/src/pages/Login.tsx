@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '../lib/api'
 
+const demoEmail = import.meta.env.VITE_DEMO_EMAIL as string | undefined
+const demoPassword = import.meta.env.VITE_DEMO_PASSWORD as string | undefined
+
 export default function Login() {
   const navigate = useNavigate()
 
@@ -158,6 +161,21 @@ export default function Login() {
               : "Sign In"}
           </button>
         </div>
+
+        {demoEmail && demoPassword && !isRegister && (
+  <div className="mt-6 border border-teal-100 bg-teal-50/60 rounded-xl p-3">
+    <p className="text-xs font-semibold text-teal-800">Try the demo</p>
+    <p className="text-xs text-slate-600 mt-0.5 mb-2">
+      Sign in with a ready-made member account.
+    </p>
+    <button
+      onClick={() => setForm(prev => ({ ...prev, email: demoEmail, password: demoPassword }))}
+      className="text-xs font-semibold text-teal-700 hover:text-white hover:bg-teal-600 bg-white border border-teal-200 px-3 py-1.5 rounded-full transition-all"
+    >
+      Fill demo credentials
+    </button>
+  </div>
+)}
 
         {canRegister && (
   <div className="mt-6 text-center">
